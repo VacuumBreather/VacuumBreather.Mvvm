@@ -1,70 +1,55 @@
-﻿namespace VacuumBreather.Mvvm.Lifecycle
+﻿// Copyright (c) 2022 VacuumBreather. All rights reserved.
+// Licensed under the MIT License. See LICENSE in the project root for license information.
+
+using System.Threading;
+using System.Threading.Tasks;
+
+namespace VacuumBreather.Mvvm.Lifecycle;
+
+/// <summary>
+///     A base class for various implementations of <see cref="IConductor" /> that maintain an
+///     active item.
+/// </summary>
+/// <typeparam name="T">The type that is being conducted.</typeparam>
+public abstract class ConductorBaseWithActiveItem<T> : ConductorBase<T>, IConductActiveItem<T>
+    where T : class
 {
-    using System.Threading;
-    using System.Threading.Tasks;
-    using JetBrains.Annotations;
+    private T? activeItem;
 
-    /// <summary>
-    ///     A base class for various implementations of <see cref="IConductor" /> that maintain an
-    ///     active item.
-    /// </summary>
-    /// <typeparam name="T">The type that is being conducted.</typeparam>
-    [PublicAPI]
-    public abstract class ConductorBaseWithActiveItem<T> : ConductorBase<T>, IConductActiveItem<T>
-        where T : class
+    /// <summary>Gets the currently active item.</summary>
+    public T? ActiveItem
     {
-        #region Constants and Fields
+        get => this.activeItem;
+        private set => SetProperty(ref this.activeItem, value);
+    }
 
-        private T? activeItem;
+    /// <inheritdoc />
+    object? IHaveActiveItem.ActiveItem => ActiveItem;
 
-        #endregion
+    /// <summary>Changes the active item.</summary>
+    /// <param name="newItem">The new item to activate.</param>
+    /// <param name="closePrevious">Indicates whether or not to close the previous active item.</param>
+    /// <param name="cancellationToken">The cancellation token to cancel operation.</param>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
+    protected virtual async Task ChangeActiveItemAsync(
+        T? newItem,
+        bool closePrevious,
+        CancellationToken cancellationToken)
+    {
+        await ScreenExtensions.TryDeactivateAsync(ActiveItem, closePrevious, cancellationToken).ConfigureAwait(false);
 
-        #region Public Properties
+        newItem = EnsureItem(newItem);
 
-        /// <summary>The currently active item.</summary>
-        public T? ActiveItem
+        ActiveItem = newItem;
+
+        if (IsActive)
         {
-            get => this.activeItem;
-            private set => SetProperty(ref this.activeItem, value);
+            await ScreenExtensions.TryActivateAsync(newItem, cancellationToken).ConfigureAwait(false);
         }
 
-        #endregion
-
-        #region IHaveActiveItem Implementation
-
-        /// <inheritdoc />
-        object? IHaveActiveItem.ActiveItem => ActiveItem;
-
-        #endregion
-
-        #region Protected Methods
-
-        /// <summary>Changes the active item.</summary>
-        /// <param name="newItem">The new item to activate.</param>
-        /// <param name="closePrevious">Indicates whether or not to close the previous active item.</param>
-        /// <param name="cancellationToken">The cancellation token to cancel operation.</param>
-        /// <returns>A task that represents the asynchronous operation.</returns>
-        protected virtual async Task ChangeActiveItemAsync(T? newItem,
-                                                           bool closePrevious,
-                                                           CancellationToken cancellationToken)
+        if (newItem is not null)
         {
-            await ScreenExtensions.TryDeactivateAsync(ActiveItem, closePrevious, cancellationToken);
-
-            newItem = EnsureItem(newItem);
-
-            ActiveItem = newItem;
-
-            if (IsActive)
-            {
-                await ScreenExtensions.TryActivateAsync(newItem, cancellationToken);
-            }
-
-            if (newItem is not null)
-            {
-                OnActivationProcessed(newItem, true);
-            }
+            OnActivationProcessed(newItem, true);
         }
-
-        #endregion
     }
 }

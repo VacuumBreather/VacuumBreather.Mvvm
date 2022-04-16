@@ -1,91 +1,77 @@
-﻿namespace VacuumBreather.Mvvm.Lifecycle
+﻿// Copyright (c) 2022 VacuumBreather. All rights reserved.
+// Licensed under the MIT License. See LICENSE in the project root for license information.
+
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
+
+namespace VacuumBreather.Mvvm.Lifecycle;
+
+/// <summary>A base class for various implementations of <see cref="IConductor" />.</summary>
+/// <typeparam name="T">The type that is being conducted.</typeparam>
+public abstract class ConductorBase<T> : Screen, IConductor<T>, IParent<T>
+    where T : class
 {
-    using System;
-    using System.Collections;
-    using System.Collections.Generic;
-    using System.Threading;
-    using System.Threading.Tasks;
-    using JetBrains.Annotations;
+    private ICloseStrategy<T> closeStrategy = new DefaultCloseStrategy<T>();
 
-    /// <summary>A base class for various implementations of <see cref="IConductor" />.</summary>
-    /// <typeparam name="T">The type that is being conducted.</typeparam>
-    [PublicAPI]
-    public abstract class ConductorBase<T> : Screen, IConductor<T>, IParent<T>
-        where T : class
+    /// <inheritdoc />
+    public event EventHandler<ActivationProcessedEventArgs>? ActivationProcessed;
+
+    /// <summary>Gets or sets the close strategy.</summary>
+    /// <value>The close strategy.</value>
+    public ICloseStrategy<T> CloseStrategy
     {
-        #region IConductor Implementation
+        get => this.closeStrategy;
+        set => SetProperty(ref this.closeStrategy, value);
+    }
 
-        /// <inheritdoc />
-        public event EventHandler<ActivationProcessedEventArgs>? ActivationProcessed;
+    /// <inheritdoc />
+    Task IConductor.ActivateItemAsync(object item, CancellationToken cancellationToken)
+    {
+        return ActivateItemAsync((T)item, cancellationToken);
+    }
 
-        /// <inheritdoc />
-        Task IConductor.ActivateItemAsync(object item, CancellationToken cancellationToken)
+    /// <inheritdoc />
+    Task IConductor.DeactivateItemAsync(object item, bool close, CancellationToken cancellationToken)
+    {
+        return DeactivateItemAsync((T)item, close, cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public abstract Task ActivateItemAsync(T item, CancellationToken cancellationToken = default);
+
+    /// <inheritdoc />
+    public abstract Task DeactivateItemAsync(T item, bool close, CancellationToken cancellationToken = default);
+
+    /// <inheritdoc />
+    IEnumerable IParent.GetChildren()
+    {
+        return GetChildren();
+    }
+
+    /// <inheritdoc />
+    public abstract IEnumerable<T> GetChildren();
+
+    /// <summary>Ensures that an item is ready to be activated.</summary>
+    /// <param name="newItem">The item that is about to be activated.</param>
+    /// <returns>The item to be activated.</returns>
+    protected virtual T? EnsureItem(T? newItem)
+    {
+        if (newItem is IChild child && (child.Parent != this))
         {
-            return ActivateItemAsync((T)item, cancellationToken);
+            child.Parent = this;
         }
 
-        /// <inheritdoc />
-        Task IConductor.DeactivateItemAsync(object item, bool close, CancellationToken cancellationToken)
-        {
-            return DeactivateItemAsync((T)item, close, cancellationToken);
-        }
+        return newItem;
+    }
 
-        #endregion
-
-        #region IConductor<T> Implementation
-
-        /// <summary>Gets or sets the close strategy.</summary>
-        /// <value>The close strategy.</value>
-        public ICloseStrategy<T> CloseStrategy { get; set; } = new DefaultCloseStrategy<T>();
-
-        /// <inheritdoc />
-        public abstract Task ActivateItemAsync(T item, CancellationToken cancellationToken = default);
-
-        /// <inheritdoc />
-        public abstract Task DeactivateItemAsync(T item, bool close, CancellationToken cancellationToken = default);
-
-        #endregion
-
-        #region IParent Implementation
-
-        /// <inheritdoc />
-        IEnumerable IParent.GetChildren()
-        {
-            return GetChildren();
-        }
-
-        #endregion
-
-        #region IParent<T> Implementation
-
-        /// <inheritdoc />
-        public abstract IEnumerable<T> GetChildren();
-
-        #endregion
-
-        #region Protected Methods
-
-        /// <summary>Ensures that an item is ready to be activated.</summary>
-        /// <param name="newItem">The item that is about to be activated.</param>
-        /// <returns>The item to be activated.</returns>
-        protected virtual T? EnsureItem(T? newItem)
-        {
-            if (newItem is IChild child && (child.Parent != this))
-            {
-                child.Parent = this;
-            }
-
-            return newItem;
-        }
-
-        /// <summary>Called by a subclass when an activation needs processing.</summary>
-        /// <param name="item">The item on which activation was attempted.</param>
-        /// <param name="success">If set to <c>true</c> the activation was successful.</param>
-        protected virtual void OnActivationProcessed(T item, bool success)
-        {
-            ActivationProcessed?.Invoke(this, new ActivationProcessedEventArgs(item, success));
-        }
-
-        #endregion
+    /// <summary>Called by a subclass when an activation needs processing.</summary>
+    /// <param name="item">The item on which activation was attempted.</param>
+    /// <param name="success">If set to <see langword="true"/> the activation was successful.</param>
+    protected virtual void OnActivationProcessed(T item, bool success)
+    {
+        ActivationProcessed?.Invoke(this, new ActivationProcessedEventArgs(item, success));
     }
 }

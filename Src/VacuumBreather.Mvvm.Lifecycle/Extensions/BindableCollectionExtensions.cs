@@ -1,57 +1,52 @@
-﻿namespace VacuumBreather.Mvvm.Lifecycle
+﻿// Copyright (c) 2022 VacuumBreather. All rights reserved.
+// Licensed under the MIT License. See LICENSE in the project root for license information.
+
+using System.Collections;
+using System.Collections.Specialized;
+using System.Linq;
+
+namespace VacuumBreather.Mvvm.Lifecycle;
+
+/// <summary>Provides extension methods for the <see cref="IBindableCollection{T}" /> type.</summary>
+internal static class BindableCollectionExtensions
 {
-    using System.Collections;
-    using System.Collections.Specialized;
-    using System.Linq;
-
-    /// <summary>Provides extension methods for the <see cref="IBindableCollection{T}" /> type.</summary>
-    internal static class BindableCollectionExtensions
+    /// <summary>
+    ///     Assigns a <see cref="IParent" /> to items being added to the collection and sets it to
+    ///     <see langword="null"/> from removed items.
+    /// </summary>
+    /// <typeparam name="T">The type of elements contained in the collection.</typeparam>
+    /// <param name="children">The collection of child items.</param>
+    /// <param name="parent">The parent.</param>
+    public static void AreChildrenOf<T>(this IBindableCollection<T> children, IParent parent)
+        where T : class
     {
-        #region Public Methods
-
-        /// <summary>
-        ///     Assigns the a <see cref="IParent" /> items being added to the collection and sets it to
-        ///     <c>null</c> from removed items.
-        /// </summary>
-        /// <param name="children">The collection of child items.</param>
-        /// <param name="parent">The parent.</param>
-        public static void AreChildrenOf<T>(this IBindableCollection<T> children, IParent parent)
-            where T : class
-        {
-            children.CollectionChanged += (s, e) =>
+        children.CollectionChanged += (s, e) =>
+            {
+                switch (e.Action)
                 {
-                    switch (e.Action)
-                    {
-                        case NotifyCollectionChangedAction.Add:
-                            SetParent(e.NewItems, parent);
+                    case NotifyCollectionChangedAction.Add:
+                        SetParent(e.NewItems, parent);
 
-                            break;
-                        case NotifyCollectionChangedAction.Remove:
-                            SetParent(e.OldItems, null);
+                        break;
+                    case NotifyCollectionChangedAction.Remove:
+                        SetParent(e.OldItems, null);
 
-                            break;
-                        case NotifyCollectionChangedAction.Replace:
-                            SetParent(e.OldItems, null);
-                            SetParent(e.NewItems, parent);
+                        break;
+                    case NotifyCollectionChangedAction.Replace:
+                        SetParent(e.OldItems, null);
+                        SetParent(e.NewItems, parent);
 
-                            break;
-                        case NotifyCollectionChangedAction.Reset:
-                            SetParent((IBindableCollection<T>)s, parent);
+                        break;
+                    case NotifyCollectionChangedAction.Reset:
+                        SetParent((IBindableCollection<T>)s, parent);
 
-                            break;
-                    }
-                };
-        }
+                        break;
+                }
+            };
+    }
 
-        #endregion
-
-        #region Private Methods
-
-        private static void SetParent(IEnumerable children, object? parent)
-        {
-            children.OfType<IChild>().ForEach(child => child.Parent = parent);
-        }
-
-        #endregion
+    private static void SetParent(IEnumerable children, object? parent)
+    {
+        children.OfType<IChild>().ForEach(child => child.Parent = parent);
     }
 }

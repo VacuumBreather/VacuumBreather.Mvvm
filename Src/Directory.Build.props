@@ -20,7 +20,7 @@
         <PublishRepositoryUrl>true</PublishRepositoryUrl> -->
         <IsTestProject>$(MSBuildProjectName.Contains('Tests'))</IsTestProject>
         <!-- <SourceLinkEnabled>true</SourceLinkEnabled> -->
-        <GenerateDocumentationFile Condition="'$(Configuration)' == 'Release' and '$(IsTestProject)' != 'true'">true</GenerateDocumentationFile>
+        <GenerateDocumentationFile Condition="'$(IsTestProject)' != 'true'">true</GenerateDocumentationFile>
         <!-- <AllowedOutputExtensionsInPackageBuildOutputFolder>$(AllowedOutputExtensionsInPackageBuildOutputFolder);.pdb</AllowedOutputExtensionsInPackageBuildOutputFolder> -->
         <!-- <PackageOutputPath>..\..\packages</PackageOutputPath> -->
     </PropertyGroup>

@@ -1,207 +1,164 @@
-﻿namespace VacuumBreather.Mvvm.Lifecycle
+﻿// Copyright (c) 2022 VacuumBreather. All rights reserved.
+// Licensed under the MIT License. See LICENSE in the project root for license information.
+
+using System.Threading;
+using System.Threading.Tasks;
+using CommunityToolkit.Mvvm.ComponentModel;
+
+namespace VacuumBreather.Mvvm.Lifecycle;
+
+/// <summary>A base implementation of <see cref="IScreen" />.</summary>
+public abstract class Screen : ObservableObject, IScreen, IChild
 {
-    using System.Threading;
-    using System.Threading.Tasks;
-    using CommunityToolkit.Mvvm.ComponentModel;
-    using JetBrains.Annotations;
+    private string displayName;
+    private bool isActive;
+    private bool isInitialized;
+    private object? parent;
 
-    /// <summary>A base implementation of <see cref="IScreen" />.</summary>
-    [PublicAPI]
-    public abstract class Screen : ObservableObject, IScreen, IChild
+    /// <summary>Initializes a new instance of the <see cref="Screen" /> class.</summary>
+    protected Screen()
     {
-        #region Constants and Fields
+        this.displayName = GetType().Name;
+    }
 
-        private string displayName;
-        private bool isActive;
-        private bool isInitialized;
-        private object? parent;
+    /// <inheritdoc />
+    public event AsyncEventHandler<ActivationEventArgs>? Activated;
 
-        #endregion
+    /// <inheritdoc />
+    public event AsyncEventHandler<DeactivationEventArgs>? Deactivated;
 
-        #region Constructors and Destructors
+    /// <inheritdoc />
+    public event AsyncEventHandler<DeactivationEventArgs>? Deactivating;
 
-        /// <summary>Initializes a new instance of the <see cref="Screen" /> class.</summary>
-        protected Screen()
+    /// <inheritdoc />
+    public string DisplayName
+    {
+        get => this.displayName;
+        set => SetProperty(ref this.displayName, value);
+    }
+
+    /// <inheritdoc />
+    public bool IsActive
+    {
+        get => this.isActive;
+        private set => SetProperty(ref this.isActive, value);
+    }
+
+    /// <summary>Gets a value indicating whether this instance has been initialized.</summary>
+    public bool IsInitialized
+    {
+        get => this.isInitialized;
+        private set => SetProperty(ref this.isInitialized, value);
+    }
+
+    /// <inheritdoc />
+    public object? Parent
+    {
+        get => this.parent;
+        set => SetProperty(ref this.parent, value);
+    }
+
+    /// <inheritdoc />
+    public async Task ActivateAsync(CancellationToken cancellationToken)
+    {
+        if (IsActive || cancellationToken.IsCancellationRequested)
         {
-            this.displayName = GetType().Name;
+            return;
         }
 
-        #endregion
+        var initialized = false;
 
-        #region Public Properties
-
-        /// <summary>Indicates whether or not this instance is currently initialized.</summary>
-        public bool IsInitialized
+        if (!IsInitialized)
         {
-            get => this.isInitialized;
-            private set => SetProperty(ref this.isInitialized, value);
+            // Deactivation is not allowed to cancel initialization, so we are only
+            // passing the token that was passed to us.
+            await OnInitializeAsync(cancellationToken).ConfigureAwait(false);
+            IsInitialized = initialized = true;
         }
 
-        #endregion
+        await OnActivateAsync(cancellationToken).ConfigureAwait(false);
 
-        #region IActivate Implementation
+        IsActive = true;
 
-        /// <inheritdoc />
-        public event AsyncEventHandler<ActivationEventArgs>? Activated;
+        await RaiseActivatedAsync(initialized, cancellationToken).ConfigureAwait(false);
+    }
 
-        /// <inheritdoc />
-        public bool IsActive
+    /// <inheritdoc />
+    public virtual async Task TryCloseAsync(
+        bool? dialogResult = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (Parent is IConductor conductor)
         {
-            get => this.isActive;
-            private set => SetProperty(ref this.isActive, value);
+            await conductor.CloseItemAsync(this, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    /// <inheritdoc />
+    public async Task DeactivateAsync(bool close, CancellationToken cancellationToken)
+    {
+        if (cancellationToken.IsCancellationRequested)
+        {
+            return;
         }
 
-        /// <inheritdoc />
-        async Task IActivate.ActivateAsync(CancellationToken cancellationToken)
+        if (IsActive || (IsInitialized && close))
         {
-            if (IsActive || cancellationToken.IsCancellationRequested)
-            {
-                return;
-            }
+            await RaiseDeactivatingAsync(close, cancellationToken).ConfigureAwait(false);
+            await OnDeactivateAsync(close, cancellationToken).ConfigureAwait(false);
 
-            var initialized = false;
+            IsActive = false;
 
-            if (!IsInitialized)
-            {
-                // Deactivation is not allowed to cancel initialization, so we are only
-                // passing the token that was passed to us.
-                await OnInitializeAsync(cancellationToken);
-                IsInitialized = initialized = true;
-            }
-
-            await OnActivateAsync(cancellationToken);
-
-            IsActive = true;
-
-            await RaiseActivatedAsync(initialized, cancellationToken);
+            await RaiseDeactivatedAsync(close, cancellationToken).ConfigureAwait(false);
         }
+    }
 
-        #endregion
+    /// <inheritdoc />
+    public virtual Task<bool> CanCloseAsync(CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult(true);
+    }
 
-        #region IChild Implementation
+    /// <summary>Called when activating.</summary>
+    /// <param name="cancellationToken">The cancellation token to cancel operation.</param>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
+    protected virtual Task OnActivateAsync(CancellationToken cancellationToken)
+    {
+        return Task.CompletedTask;
+    }
 
-        /// <inheritdoc />
-        public object? Parent
-        {
-            get => this.parent;
-            set => SetProperty(ref this.parent, value);
-        }
+    /// <summary>Called when deactivating.</summary>
+    /// <param name="close">Indicates whether this instance will be closed.</param>
+    /// <param name="cancellationToken">The cancellation token to cancel operation.</param>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
+    protected virtual Task OnDeactivateAsync(bool close, CancellationToken cancellationToken)
+    {
+        return Task.CompletedTask;
+    }
 
-        #endregion
+    /// <summary>Called when initializing.</summary>
+    /// <param name="cancellationToken">The cancellation token to cancel operation.</param>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
+    protected virtual Task OnInitializeAsync(CancellationToken cancellationToken)
+    {
+        return Task.CompletedTask;
+    }
 
-        #region IClose Implementation
+    private async Task RaiseActivatedAsync(bool wasInitialized, CancellationToken cancellationToken)
+    {
+        await (Activated?.InvokeAllAsync(this, new ActivationEventArgs(wasInitialized), cancellationToken) ??
+               Task.CompletedTask).ConfigureAwait(false);
+    }
 
-        /// <inheritdoc />
-        public virtual async Task TryCloseAsync(bool? dialogResult = null,
-                                                CancellationToken cancellationToken = default)
-        {
-            if (Parent is IConductor conductor)
-            {
-                await conductor.CloseItemAsync(this, cancellationToken);
-            }
-        }
+    private async Task RaiseDeactivatedAsync(bool wasClosed, CancellationToken cancellationToken)
+    {
+        await (Deactivated?.InvokeAllAsync(this, new DeactivationEventArgs(wasClosed), cancellationToken) ??
+               Task.CompletedTask).ConfigureAwait(false);
+    }
 
-        #endregion
-
-        #region IDeactivate Implementation
-
-        /// <inheritdoc />
-        public event AsyncEventHandler<DeactivationEventArgs>? Deactivated;
-
-        /// <inheritdoc />
-        public event AsyncEventHandler<DeactivationEventArgs>? Deactivating;
-
-        /// <inheritdoc />
-        async Task IDeactivate.DeactivateAsync(bool close, CancellationToken cancellationToken)
-        {
-            if (cancellationToken.IsCancellationRequested)
-            {
-                return;
-            }
-
-            if (IsActive || (IsInitialized && close))
-            {
-                await RaiseDeactivatingAsync(close, cancellationToken);
-                await OnDeactivateAsync(close, cancellationToken);
-
-                IsActive = false;
-
-                await RaiseDeactivatedAsync(close, cancellationToken);
-            }
-        }
-
-        #endregion
-
-        #region IGuardClose Implementation
-
-        /// <inheritdoc />
-        public virtual Task<bool> CanCloseAsync(CancellationToken cancellationToken = default)
-        {
-            return Task.FromResult(true);
-        }
-
-        #endregion
-
-        #region IHaveDisplayName Implementation
-
-        /// <inheritdoc />
-        public string DisplayName
-        {
-            get => this.displayName;
-            set => SetProperty(ref this.displayName, value);
-        }
-
-        #endregion
-
-        #region Protected Methods
-
-        /// <summary>Called when activating.</summary>
-        /// <param name="cancellationToken">The cancellation token to cancel operation.</param>
-        /// <returns>A task that represents the asynchronous operation.</returns>
-        protected virtual Task OnActivateAsync(CancellationToken cancellationToken)
-        {
-            return Task.CompletedTask;
-        }
-
-        /// <summary>Called when deactivating.</summary>
-        /// <param name="close">Indicates whether this instance will be closed.</param>
-        /// <param name="cancellationToken">The cancellation token to cancel operation.</param>
-        /// <returns>A task that represents the asynchronous operation.</returns>
-        protected virtual Task OnDeactivateAsync(bool close, CancellationToken cancellationToken)
-        {
-            return Task.CompletedTask;
-        }
-
-        /// <summary>Called when initializing.</summary>
-        /// <param name="cancellationToken">The cancellation token to cancel operation.</param>
-        /// <returns>A task that represents the asynchronous operation.</returns>
-        protected virtual Task OnInitializeAsync(CancellationToken cancellationToken)
-        {
-            return Task.CompletedTask;
-        }
-
-        #endregion
-
-        #region Private Methods
-
-        private async Task RaiseActivatedAsync(bool wasInitialized, CancellationToken cancellationToken)
-        {
-            await (Activated?.InvokeAllAsync(this, new ActivationEventArgs(wasInitialized), cancellationToken) ??
-                   Task.CompletedTask);
-        }
-
-        private async Task RaiseDeactivatedAsync(bool wasClosed, CancellationToken cancellationToken)
-        {
-            await (Deactivated?.InvokeAllAsync(this, new DeactivationEventArgs(wasClosed), cancellationToken) ??
-                   Task.CompletedTask);
-        }
-
-        private async Task RaiseDeactivatingAsync(bool wasClosed, CancellationToken cancellationToken)
-        {
-            await (Deactivating?.InvokeAllAsync(this, new DeactivationEventArgs(wasClosed), cancellationToken) ??
-                   Task.CompletedTask);
-        }
-
-        #endregion
+    private async Task RaiseDeactivatingAsync(bool wasClosed, CancellationToken cancellationToken)
+    {
+        await (Deactivating?.InvokeAllAsync(this, new DeactivationEventArgs(wasClosed), cancellationToken) ??
+               Task.CompletedTask).ConfigureAwait(false);
     }
 }
