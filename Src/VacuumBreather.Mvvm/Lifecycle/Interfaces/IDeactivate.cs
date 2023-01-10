@@ -1,0 +1,24 @@
+﻿// "// Copyright (c) 2022 VacuumBreather. All rights reserved.
+// // Licensed under the MIT License. See LICENSE in the project root for license information."
+
+using System.Threading;
+using System.Threading.Tasks;
+
+namespace VacuumBreather.Mvvm.Lifecycle
+{
+    /// <summary>Denotes an instance which requires deactivation.</summary>
+    public interface IDeactivate
+    {
+        /// <summary>Raised after deactivation.</summary>
+        event AsyncEventHandler<DeactivationEventArgs>? Deactivated;
+
+        /// <summary>Raised before deactivation.</summary>
+        event AsyncEventHandler<DeactivationEventArgs>? Deactivating;
+
+        /// <summary>Deactivates this instance.</summary>
+        /// <param name="close">Indicates whether or not this instance is being closed.</param>
+        /// <param name="cancellationToken">(Optional) The cancellation token to cancel operation.</param>
+        /// <returns>A <see cref="ValueTask" /> representing the asynchronous operation.</returns>
+        ValueTask DeactivateAsync(bool close, CancellationToken cancellationToken = default);
+    }
+}
