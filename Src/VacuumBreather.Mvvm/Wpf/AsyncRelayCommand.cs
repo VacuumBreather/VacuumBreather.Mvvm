@@ -9,7 +9,7 @@ using VacuumBreather.Mvvm.Lifecycle;
 namespace VacuumBreather.Mvvm.Wpf
 {
     /// <summary>A command which relays its execution to an asynchronous delegate.</summary>
-    public class AsyncRelayCommand : IAsyncCommand
+    public sealed class AsyncRelayCommand : IAsyncCommand
     {
         /// <summary>A command which does nothing and can always be executed.</summary>
         public static readonly AsyncRelayCommand DoNothing = new(() => ValueTask.CompletedTask);
@@ -17,6 +17,7 @@ namespace VacuumBreather.Mvvm.Wpf
         private readonly AsyncGuard asyncGuard = new();
 
         private readonly Func<bool>? canExecute;
+
         private readonly Func<ValueTask> execute;
 
         /// <summary>Initializes a new instance of the <see cref="AsyncRelayCommand" /> class.</summary>
@@ -29,6 +30,9 @@ namespace VacuumBreather.Mvvm.Wpf
 
             this.asyncGuard.IsOngoingChanged += (_, _) => RaiseCanExecuteChanged();
         }
+
+        /// <inheritdoc />
+        public event EventHandler? CanExecuteChanged;
 
         /// <inheritdoc />
         public bool CanExecute()
@@ -45,8 +49,11 @@ namespace VacuumBreather.Mvvm.Wpf
             }
         }
 
-        /// <inheritdoc />
-        public event EventHandler? CanExecuteChanged;
+        /// <summary>Raises the <see cref="CanExecuteChanged" /> event.</summary>
+        public void RaiseCanExecuteChanged()
+        {
+            Execute.OnUIThread(() => CanExecuteChanged?.Invoke(this, EventArgs.Empty));
+        }
 
         /// <inheritdoc />
         bool ICommand.CanExecute(object? parameter)
@@ -59,17 +66,13 @@ namespace VacuumBreather.Mvvm.Wpf
         {
             ExecuteAsync().Forget();
         }
-
-        /// <summary>Raises the <see cref="CanExecuteChanged" /> event.</summary>
-        public void RaiseCanExecuteChanged()
-        {
-            Execute.OnUIThread(() => CanExecuteChanged?.Invoke(this, EventArgs.Empty));
-        }
     }
 
     /// <summary>A command which relays its execution to an asynchronous delegate.</summary>
     /// <typeparam name="T">The type of the command parameter.</typeparam>
-    public class AsyncRelayCommand<T> : IAsyncCommand<T>
+#pragma warning disable SA1402 // File may only contain a single type
+    public sealed class AsyncRelayCommand<T> : IAsyncCommand<T>
+#pragma warning restore SA1402 // File may only contain a single type
     {
         /// <summary>A command which does nothing and can always be executed.</summary>
         public static readonly AsyncRelayCommand<T> DoNothing = new(_ => ValueTask.CompletedTask);
@@ -77,6 +80,7 @@ namespace VacuumBreather.Mvvm.Wpf
         private readonly AsyncGuard asyncGuard = new();
 
         private readonly Func<T?, bool>? canExecute;
+
         private readonly Func<T?, ValueTask> execute;
 
         /// <summary>Initializes a new instance of the <see cref="AsyncRelayCommand{T}" /> class.</summary>
@@ -89,6 +93,9 @@ namespace VacuumBreather.Mvvm.Wpf
 
             this.asyncGuard.IsOngoingChanged += (_, _) => RaiseCanExecuteChanged();
         }
+
+        /// <inheritdoc />
+        public event EventHandler? CanExecuteChanged;
 
         /// <inheritdoc />
         public bool CanExecute(T? parameter)
@@ -105,8 +112,11 @@ namespace VacuumBreather.Mvvm.Wpf
             }
         }
 
-        /// <inheritdoc />
-        public event EventHandler? CanExecuteChanged;
+        /// <summary>Raises the <see cref="CanExecuteChanged" /> event.</summary>
+        public void RaiseCanExecuteChanged()
+        {
+            Execute.OnUIThread(() => CanExecuteChanged?.Invoke(this, EventArgs.Empty));
+        }
 
         /// <inheritdoc />
         bool ICommand.CanExecute(object? parameter)
@@ -118,12 +128,6 @@ namespace VacuumBreather.Mvvm.Wpf
         void ICommand.Execute(object? parameter)
         {
             ExecuteAsync((T?)parameter).Forget();
-        }
-
-        /// <summary>Raises the <see cref="CanExecuteChanged" /> event.</summary>
-        public void RaiseCanExecuteChanged()
-        {
-            Execute.OnUIThread(() => CanExecuteChanged?.Invoke(this, EventArgs.Empty));
         }
     }
 }

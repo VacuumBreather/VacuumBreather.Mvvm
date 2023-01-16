@@ -1,5 +1,5 @@
-﻿// "// Copyright (c) 2022 VacuumBreather. All rights reserved.
-// // Licensed under the MIT License. See LICENSE in the project root for license information."
+﻿// Copyright (c) 2022 VacuumBreather. All rights reserved.
+// Licensed under the MIT License. See LICENSE in the project root for license information.
 
 using System;
 using System.Collections;
@@ -16,9 +16,6 @@ namespace VacuumBreather.Mvvm.Lifecycle
     {
         private ICloseStrategy<T> closeStrategy = new DefaultCloseStrategy<T>();
 
-        /// <inheritdoc />
-        public event EventHandler<ActivationProcessedEventArgs>? ActivationProcessed;
-
         /// <summary>Gets or sets the close strategy.</summary>
         /// <value>The close strategy.</value>
         public ICloseStrategy<T> CloseStrategy
@@ -26,6 +23,9 @@ namespace VacuumBreather.Mvvm.Lifecycle
             get => this.closeStrategy;
             set => SetProperty(ref this.closeStrategy, value);
         }
+
+        /// <inheritdoc />
+        public event EventHandler<ActivationProcessedEventArgs>? ActivationProcessed;
 
         /// <inheritdoc />
         ValueTask IConductor.ActivateItemAsync(object? item, CancellationToken cancellationToken)

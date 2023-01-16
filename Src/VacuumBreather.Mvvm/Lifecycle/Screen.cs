@@ -1,5 +1,5 @@
-﻿// "// Copyright (c) 2022 VacuumBreather. All rights reserved.
-// // Licensed under the MIT License. See LICENSE in the project root for license information."
+﻿// Copyright (c) 2022 VacuumBreather. All rights reserved.
+// Licensed under the MIT License. See LICENSE in the project root for license information.
 
 using System.Threading;
 using System.Threading.Tasks;
@@ -35,15 +35,6 @@ namespace VacuumBreather.Mvvm.Lifecycle
         }
 
         /// <inheritdoc />
-        public event AsyncEventHandler<ActivationEventArgs>? Activated;
-
-        /// <inheritdoc />
-        public event AsyncEventHandler<DeactivationEventArgs>? Deactivated;
-
-        /// <inheritdoc />
-        public event AsyncEventHandler<DeactivationEventArgs>? Deactivating;
-
-        /// <inheritdoc />
         public string DisplayName
         {
             get => this.displayName;
@@ -56,6 +47,15 @@ namespace VacuumBreather.Mvvm.Lifecycle
             get => this.isActive;
             private set => SetProperty(ref this.isActive, value);
         }
+
+        /// <inheritdoc />
+        public event AsyncEventHandler<ActivationEventArgs>? Activated;
+
+        /// <inheritdoc />
+        public event AsyncEventHandler<DeactivationEventArgs>? Deactivated;
+
+        /// <inheritdoc />
+        public event AsyncEventHandler<DeactivationEventArgs>? Deactivating;
 
         /// <inheritdoc />
         public async ValueTask ActivateAsync(CancellationToken cancellationToken)

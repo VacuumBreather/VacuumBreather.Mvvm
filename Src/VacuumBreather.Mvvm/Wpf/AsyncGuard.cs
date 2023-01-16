@@ -17,15 +17,15 @@ namespace VacuumBreather.Mvvm.Wpf
     {
         private int asyncCounter;
 
-        /// <summary>Occurs when the number of ongoing operations has changed.</summary>
-        public event EventHandler? IsOngoingChanged;
-
         /// <summary>
         ///     Gets a value indicating whether any asynchronous operations are still ongoing (i.e. using
         ///     tokens).
         /// </summary>
-        /// <value><see langword="true"/> if any asynchronous operations are still ongoing; otherwise, <see langword="false"/>.</value>
+        /// <value><see langword="true" /> if any asynchronous operations are still ongoing; otherwise, <see langword="false" />.</value>
         public bool IsOngoing => this.asyncCounter != 0;
+
+        /// <summary>Occurs when the number of ongoing operations has changed.</summary>
+        public event EventHandler? IsOngoingChanged;
 
         /// <summary>
         ///     Gets a new token to track an asynchronous operation. Use as the <see cref="IDisposable" />
