@@ -2,7 +2,6 @@
 // Licensed under the MIT License. See LICENSE in the project root for license information.
 
 using System;
-using System.Windows;
 
 namespace VacuumBreather.Mvvm.Lifecycle
 {
@@ -15,11 +14,11 @@ namespace VacuumBreather.Mvvm.Lifecycle
         /// <summary>Attaches a view to this instance.</summary>
         /// <param name="view">The view.</param>
         /// <param name="context">The ID of the context in which the view appears.</param>
-        void AttachView(UIElement view, Guid context);
+        void AttachView(object view, Guid context);
 
         /// <summary>Gets a view previously attached to this instance.</summary>
         /// <param name="context">The ID of the context in which the view appears.</param>
-        /// <returns>The attached view, or <c>null</c> if no view has been attached for the specified context.</returns>
-        UIElement? GetView(Guid context);
+        /// <returns>The attached view, or <see langword="null"/> if no view has been attached for the specified context.</returns>
+        object? GetView(Guid context);
     }
 }

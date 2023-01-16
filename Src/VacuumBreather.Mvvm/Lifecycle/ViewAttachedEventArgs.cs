@@ -2,7 +2,6 @@
 // Licensed under the MIT License. See LICENSE in the project root for license information.
 
 using System;
-using System.Windows;
 
 namespace VacuumBreather.Mvvm.Lifecycle
 {
@@ -13,6 +12,6 @@ namespace VacuumBreather.Mvvm.Lifecycle
         public Guid Context { get; set; }
 
         /// <summary>The attached view.</summary>
-        public UIElement? View { get; set; }
+        public object? View { get; set; }
     }
 }

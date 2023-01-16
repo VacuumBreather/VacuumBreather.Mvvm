@@ -3,7 +3,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Windows;
 
 namespace VacuumBreather.Mvvm.Lifecycle
 {
@@ -13,28 +12,28 @@ namespace VacuumBreather.Mvvm.Lifecycle
     /// </summary>
     public class ViewAware : BindableObject, IViewAware
     {
-        private readonly IDictionary<Guid, UIElement> viewCache = new Dictionary<Guid, UIElement>();
+        private readonly IDictionary<Guid, object> viewCache = new Dictionary<Guid, object>();
 
         /// <inheritdoc />
         public event EventHandler<ViewAttachedEventArgs>? ViewAttached;
 
         /// <inheritdoc />
-        public void AttachView(UIElement view, Guid context)
+        public void AttachView(object view, Guid context)
         {
             this.viewCache[context] = view;
             OnViewAttached(view, context);
         }
 
         /// <inheritdoc />
-        public UIElement? GetView(Guid context)
+        public object? GetView(Guid context)
         {
-            return this.viewCache.TryGetValue(context, out UIElement? view) ? view : null;
+            return this.viewCache.TryGetValue(context, out object? view) ? view : null;
         }
 
         /// <summary>Called when a view is attached.</summary>
         /// <param name="view">The view.</param>
         /// <param name="context">The ID of the context in which the view appears.</param>
-        protected virtual void OnViewAttached(UIElement view, Guid context)
+        protected virtual void OnViewAttached(object view, Guid context)
         {
             ViewAttached?.Invoke(this, new ViewAttachedEventArgs { View = view, Context = context });
         }

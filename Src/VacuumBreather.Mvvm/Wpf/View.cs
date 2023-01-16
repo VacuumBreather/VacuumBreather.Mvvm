@@ -80,7 +80,7 @@ namespace VacuumBreather.Mvvm.Wpf
                 return null;
             }
 
-            return viewAware.GetView(context);
+            return viewAware.GetView(context) as UIElement;
         }
 
         private static Guid GetContext(DependencyObject? element)
