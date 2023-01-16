@@ -22,7 +22,7 @@ dotnet_diagnostic.IDE0055.severity = warning
 # Organize usings
 dotnet_separate_import_directive_groups = false
 dotnet_sort_system_directives_first = true
-file_header_template = "// Copyright (c) 2022 VacuumBreather. All rights reserved.\n// Licensed under the MIT License. See LICENSE in the project root for license information."
+file_header_template = "Copyright (c) 2022 VacuumBreather. All rights reserved.\nLicensed under the MIT License. See LICENSE in the project root for license information."
 
 # this. and Me. preferences
 dotnet_style_qualification_for_event = false
