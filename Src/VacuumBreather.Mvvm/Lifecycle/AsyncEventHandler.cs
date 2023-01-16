@@ -15,7 +15,8 @@ namespace VacuumBreather.Mvvm.Lifecycle
     /// <param name="cancellationToken">(Optional) The cancellation token to cancel operation.</param>
     /// <returns>A <see cref="ValueTask" /> representing the asynchronous operation.</returns>
     [SuppressMessage(
-        "Naming", "CA1711:Identifiers should not have incorrect suffix",
+        "Naming",
+        "CA1711:Identifiers should not have incorrect suffix",
         Justification = "This is a special type of event handler delegate. The name is appropriate.")]
     public delegate ValueTask AsyncEventHandler<in TEventArgs>(
         object sender,

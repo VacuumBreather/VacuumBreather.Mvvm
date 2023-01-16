@@ -113,13 +113,10 @@ namespace VacuumBreather.Mvvm.Wpf
         {
             // Extract all potential view and view-model types.
             return assembly.GetExportedTypes()
-                .Where(type => !type.IsGenericType)
-                .Where(type => !type.IsInterface)
-                .Where(type => !type.IsAbstract)
-                .Where(type => !type.IsNested)
-                .Where(
-                    type => type.IsDerivedFromOrImplements(typeof(UIElement)) ||
-                            type.IsDerivedFromOrImplements(typeof(Screen)));
+                .Where(type =>
+                    type is { IsGenericType: false, IsInterface: false, IsAbstract: false, IsNested: false } &&
+                    (type.IsDerivedFromOrImplements(typeof(UIElement)) ||
+                     type.IsDerivedFromOrImplements(typeof(Screen))));
         }
     }
 }
