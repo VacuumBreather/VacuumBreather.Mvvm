@@ -1,8 +1,11 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using JetBrains.Annotations;
+using VacuumBreather.Mvvm.Core;
 
 namespace VacuumBreather.Mvvm.Wpf;
 
@@ -92,9 +95,9 @@ public class SeparatingPanel : Panel
     /// <summary>
     ///     Gets or sets the brush used to draw the separator between panel children.
     /// </summary>
-    public Brush SeparatorBrush
+    public Brush? SeparatorBrush
     {
-        get => (Brush)GetValue(SeparatorBrushProperty);
+        get => (Brush?)GetValue(SeparatorBrushProperty);
         set => SetValue(SeparatorBrushProperty, value);
     }
 
@@ -119,27 +122,17 @@ public class SeparatingPanel : Panel
     /// <inheritdoc />
     protected override Size ArrangeOverride(Size finalSize)
     {
-        var top = 0.0;
+        WrapMeasuredChildren()
+            .AggregateForEach(0.0,
+                              (top, wrapper) =>
+                              {
+                                  var finalRect = new Rect(new Point(0.0, top + wrapper.SeparatorHeight),
+                                                           new Size(finalSize.Width, wrapper.ChildHeight));
 
-        if (DrawSeparatorAbove)
-        {
-            top += SeparatorThickness + SeparatorMargin.Top + SeparatorMargin.Bottom;
-        }
+                                  wrapper.Child?.Arrange(finalRect);
 
-        for (var i = 0; i < InternalChildren.Count; i++)
-        {
-            UIElement child = InternalChildren[i];
-
-            if (i != 0)
-            {
-                top += SeparatorThickness + SeparatorMargin.Top + SeparatorMargin.Bottom;
-            }
-
-            var finalRect = new Rect(new Point(0.0, top), new Size(finalSize.Width, child.DesiredSize.Height));
-
-            child.Arrange(finalRect);
-            top += child.DesiredSize.Height;
-        }
+                                  return top + wrapper.TotalHeight;
+                              });
 
         return finalSize;
     }
@@ -147,34 +140,19 @@ public class SeparatingPanel : Panel
     /// <inheritdoc />
     protected override Size MeasureOverride(Size availableSize)
     {
-        var totalHeight = 0.0;
-        var maxWidth = 0.0;
-
-        if (DrawSeparatorAbove)
+        if (InternalChildren.Count == 0)
         {
-            totalHeight += SeparatorThickness + SeparatorMargin.Top + SeparatorMargin.Bottom;
+            return Size.Empty;
         }
 
-        maxWidth = Math.Max(maxWidth, SeparatorMargin.Left + SeparatorMargin.Right);
+        var children = InternalChildren.Cast<UIElement>().ToArray();
 
-        for (var i = 0; i < InternalChildren.Count; i++)
-        {
-            UIElement child = InternalChildren[i];
-            child.Measure(availableSize);
-            totalHeight += child.DesiredSize.Height;
+        children.ForEach(child => child.Measure(availableSize));
 
-            if (i != 0)
-            {
-                totalHeight += SeparatorThickness + SeparatorMargin.Top + SeparatorMargin.Bottom;
-            }
+        var wrappers = WrapMeasuredChildren();
 
-            maxWidth = Math.Max(maxWidth, child.DesiredSize.Width);
-        }
-
-        if (DrawSeparatorBelow)
-        {
-            totalHeight += SeparatorThickness + SeparatorMargin.Top + SeparatorMargin.Bottom;
-        }
+        var maxWidth = wrappers.Max(wrapper => wrapper.ChildWidth);
+        var totalHeight = wrappers.Sum(wrapper => wrapper.TotalHeight);
 
         return new Size(maxWidth, totalHeight);
     }
@@ -182,9 +160,9 @@ public class SeparatingPanel : Panel
     /// <inheritdoc />
     protected override void OnChildDesiredSizeChanged(UIElement child)
     {
+        InvalidateMeasure();
+        InvalidateArrange();
         InvalidateVisual();
-
-        base.OnChildDesiredSizeChanged(child);
     }
 
     /// <inheritdoc />
@@ -195,50 +173,89 @@ public class SeparatingPanel : Panel
             dc.DrawRectangle(Background, null, new Rect(new Point(0, 0), new Size(ActualWidth, ActualHeight)));
         }
 
-        var top = 0.0;
-
-        if (DrawSeparatorAbove)
+        if (SeparatorBrush is null || !(SeparatorThickness > 0.0))
         {
-            top += SeparatorMargin.Top;
-
-            var topLeft = new Point(SeparatorMargin.Left, top);
-            var bottomRight = new Point(ActualWidth - SeparatorMargin.Right, top + SeparatorThickness);
-
-            dc.DrawRectangle(SeparatorBrush, null, new Rect(topLeft, bottomRight));
-
-            top += SeparatorThickness + SeparatorMargin.Bottom;
+            return;
         }
 
-        int i;
+        WrapMeasuredChildren()
+            .AggregateForEach(0.0,
+                              (top, wrapper) =>
+                              {
+                                  if (wrapper.HasSeparator)
+                                  {
+                                      var separatorTop = top + SeparatorMargin.Top;
+                                      var topLeft = new Point(SeparatorMargin.Left, separatorTop);
 
-        for (i = 0; i < InternalChildren.Count - 1; i++)
+                                      var bottomRight = new Point(ActualWidth - SeparatorMargin.Right,
+                                                                  separatorTop + SeparatorThickness);
+
+                                      dc.DrawRectangle(SeparatorBrush, null, new Rect(topLeft, bottomRight));
+                                  }
+
+                                  return top + wrapper.TotalHeight;
+                              });
+    }
+
+    private IList<ChildWrapper> WrapMeasuredChildren()
+    {
+        if (InternalChildren.Count == 0)
         {
-            UIElement child = InternalChildren[i];
-
-            top += child.DesiredSize.Height;
-
-            if (InternalChildren[i + 1].DesiredSize.Height > 0.0)
-            {
-                top += SeparatorMargin.Top;
-
-                var topLeft = new Point(SeparatorMargin.Left, top);
-                var bottomRight = new Point(ActualWidth - SeparatorMargin.Right, top + SeparatorThickness);
-
-                dc.DrawRectangle(SeparatorBrush, null, new Rect(topLeft, bottomRight));
-
-                top += SeparatorThickness + SeparatorMargin.Bottom;
-            }
+            return Array.Empty<ChildWrapper>();
         }
 
-        if (DrawSeparatorBelow && (InternalChildren[i].DesiredSize.Height > 0.0))
-        {
-            top += InternalChildren[i].DesiredSize.Height;
-            top += SeparatorMargin.Top;
+        var children = InternalChildren.Cast<UIElement>().ToArray();
 
-            var topLeft = new Point(SeparatorMargin.Left, top);
-            var bottomRight = new Point(ActualWidth - SeparatorMargin.Right, top + SeparatorThickness);
+        var separatorHeight = SeparatorThickness + SeparatorMargin.Top + SeparatorMargin.Bottom;
 
-            dc.DrawRectangle(SeparatorBrush, null, new Rect(topLeft, bottomRight));
-        }
+        var wrappers = children
+                       .Select(child => new ChildWrapper
+                                        {
+                                            Child = child,
+                                            ChildWidth = child.DesiredSize.Width,
+                                            ChildHeight = child.DesiredSize.Height,
+                                            SeparatorHeight = child.DesiredSize.Height > 0.0 ? separatorHeight : 0.0,
+                                            HasSeparator = child.DesiredSize.Height > 0.0,
+                                        })
+                       .Prepend(new ChildWrapper
+                                {
+                                    Child = null,
+                                    ChildWidth = SeparatorMargin.Left + SeparatorMargin.Right,
+                                    ChildHeight = 0.0,
+                                    SeparatorHeight = DrawSeparatorAbove ? separatorHeight : 0.0,
+                                    HasSeparator = DrawSeparatorAbove,
+                                })
+                       .Append(new ChildWrapper
+                               {
+                                   Child = null,
+                                   ChildWidth = SeparatorMargin.Left + SeparatorMargin.Right,
+                                   ChildHeight = 0.0,
+                                   SeparatorHeight = DrawSeparatorBelow ? separatorHeight : 0.0,
+                                   HasSeparator = DrawSeparatorBelow,
+                               })
+                       .ToArray();
+
+        // The first child has no separator above it, aside from the optional draw-above separator.
+        wrappers[1].HasSeparator = false;
+        wrappers[1].SeparatorHeight = 0.0;
+
+        wrappers.ForEach(wrapper => { wrapper.TotalHeight = wrapper.ChildHeight + wrapper.SeparatorHeight; });
+
+        return wrappers;
+    }
+
+    private sealed class ChildWrapper
+    {
+        public UIElement? Child { get; init; }
+
+        public double ChildHeight { get; init; }
+
+        public double ChildWidth { get; init; }
+
+        public bool HasSeparator { get; set; }
+
+        public double SeparatorHeight { get; set; }
+
+        public double TotalHeight { get; set; }
     }
 }
