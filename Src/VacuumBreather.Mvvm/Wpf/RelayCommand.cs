@@ -1,107 +1,109 @@
-﻿// Copyright (c) 2022 VacuumBreather. All rights reserved.
-// Licensed under the MIT License. See LICENSE in the project root for license information.
-
-using System;
+﻿using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Windows.Input;
 
-namespace VacuumBreather.Mvvm.Wpf
+namespace VacuumBreather.Mvvm.Wpf;
+
+/// <summary>A command which relays its execution to a delegate.</summary>
+public class RelayCommand : IRaisingCommand
 {
-    /// <summary>A command which relays its execution to a delegate.</summary>
-    public class RelayCommand : IRaisingCommand
+    /// <summary>A command which does nothing and can always be executed.</summary>
+    public static readonly RelayCommand DoNothing = new(() => { });
+
+    private readonly Func<bool>? _canExecute;
+    private readonly Action _execute;
+
+    /// <summary>Initializes a new instance of the <see cref="RelayCommand" /> class.</summary>
+    /// <param name="execute">The action to perform when the command is executed.</param>
+    /// <param name="canExecute">(Optional) The predicate which checks if the command can be executed.</param>
+    public RelayCommand(Action execute, Func<bool>? canExecute = null)
     {
-        /// <summary>A command which does nothing and can always be executed.</summary>
-        public static readonly RelayCommand DoNothing = new(() => { });
+        _execute = execute;
+        _canExecute = canExecute;
+    }
 
-        private readonly Func<bool>? canExecute;
-        private readonly Action execute;
+    /// <inheritdoc />
+    public event EventHandler? CanExecuteChanged;
 
-        /// <summary>Initializes a new instance of the <see cref="RelayCommand" /> class.</summary>
-        /// <param name="execute">The action to perform when the command is executed.</param>
-        /// <param name="canExecute">(Optional) The predicate which checks if the command can be executed.</param>
-        public RelayCommand(Action execute, Func<bool>? canExecute = null)
+    /// <inheritdoc />
+    public bool CanExecute(object? parameter)
+    {
+        return _canExecute?.Invoke() ?? true;
+    }
+
+    /// <inheritdoc />
+    public void Execute(object? parameter)
+    {
+        if (CanExecute(parameter))
         {
-            this.execute = execute;
-            this.canExecute = canExecute;
-        }
-
-        /// <inheritdoc />
-        public event EventHandler? CanExecuteChanged;
-
-        /// <inheritdoc />
-        public bool CanExecute(object? parameter)
-        {
-            return this.canExecute?.Invoke() ?? true;
-        }
-
-        /// <inheritdoc />
-        public void Execute(object? parameter)
-        {
-            if (CanExecute(parameter))
-            {
-                this.execute.Invoke();
-            }
-        }
-
-        /// <summary>Raises the <see cref="CanExecuteChanged" /> event.</summary>
-        public void RaiseCanExecuteChanged()
-        {
-            Wpf.Execute.OnUIThread(() => CanExecuteChanged?.Invoke(this, EventArgs.Empty));
+            _execute.Invoke();
         }
     }
 
-    /// <summary>A command which relays its execution to a delegate.</summary>
-    /// <typeparam name="T">The type of the command parameter.</typeparam>
-    public class RelayCommand<T> : ICommand<T>
+    /// <summary>Raises the <see cref="CanExecuteChanged" /> event.</summary>
+    public void Refresh()
     {
-        /// <summary>A command which does nothing and can always be executed.</summary>
-        public static readonly RelayCommand<T?> DoNothing = new(_ => { });
+        CanExecuteChanged?.Invoke(this, EventArgs.Empty);
+    }
+}
 
-        private readonly Func<T?, bool>? canExecute;
-        private readonly Action<T?> execute;
+/// <summary>A command which relays its execution to a delegate.</summary>
+/// <typeparam name="T">The type of the command parameter.</typeparam>
+[SuppressMessage("StyleCop.CSharp.MaintainabilityRules",
+                 "SA1402:File may only contain a single type",
+                 Justification = "Generic version of same type")]
+public class RelayCommand<T> : ICommand<T>
+{
+    /// <summary>A command which does nothing and can always be executed.</summary>
+    public static readonly RelayCommand<T?> DoNothing = new(_ => { });
 
-        /// <summary>Creates a new instance of <see cref="RelayCommand{T}" />.</summary>
-        /// <param name="execute">The action to perform when the command is executed.</param>
-        /// <param name="canExecute">(Optional) The predicate which checks if the command can be executed.</param>
-        public RelayCommand(Action<T?> execute, Func<T?, bool>? canExecute = null)
+    private readonly Func<T?, bool>? _canExecute;
+    private readonly Action<T?> _execute;
+
+    /// <summary>
+    ///     Initializes a new instance of the <see cref="RelayCommand{T}" /> class.
+    /// </summary>
+    /// <param name="execute">The action to perform when the command is executed.</param>
+    /// <param name="canExecute">(Optional) The predicate which checks if the command can be executed.</param>
+    public RelayCommand(Action<T?> execute, Func<T?, bool>? canExecute = null)
+    {
+        _execute = execute;
+        _canExecute = canExecute;
+    }
+
+    /// <inheritdoc />
+    public event EventHandler? CanExecuteChanged;
+
+    /// <inheritdoc />
+    public bool CanExecute(T? parameter)
+    {
+        return _canExecute?.Invoke(parameter) ?? true;
+    }
+
+    /// <inheritdoc />
+    public void Execute(T? parameter)
+    {
+        if (CanExecute(parameter))
         {
-            this.execute = execute;
-            this.canExecute = canExecute;
+            _execute.Invoke(parameter);
         }
+    }
 
-        /// <inheritdoc />
-        public event EventHandler? CanExecuteChanged;
+    /// <summary>Raises the <see cref="CanExecuteChanged" /> event.</summary>
+    public void Refresh()
+    {
+        CanExecuteChanged?.Invoke(this, EventArgs.Empty);
+    }
 
-        /// <inheritdoc />
-        bool ICommand.CanExecute(object? parameter)
-        {
-            return CanExecute((T?)parameter);
-        }
+    /// <inheritdoc />
+    bool ICommand.CanExecute(object? parameter)
+    {
+        return CanExecute((T?)parameter);
+    }
 
-        /// <inheritdoc />
-        void ICommand.Execute(object? parameter)
-        {
-            Execute((T?)parameter);
-        }
-
-        /// <inheritdoc />
-        public bool CanExecute(T? parameter)
-        {
-            return this.canExecute?.Invoke(parameter) ?? true;
-        }
-
-        /// <inheritdoc />
-        public void Execute(T? parameter)
-        {
-            if (CanExecute(parameter))
-            {
-                this.execute.Invoke(parameter);
-            }
-        }
-
-        /// <summary>Raises the <see cref="CanExecuteChanged" /> event.</summary>
-        public void RaiseCanExecuteChanged()
-        {
-            Wpf.Execute.OnUIThread(() => CanExecuteChanged?.Invoke(this, EventArgs.Empty));
-        }
+    /// <inheritdoc />
+    void ICommand.Execute(object? parameter)
+    {
+        Execute((T?)parameter);
     }
 }

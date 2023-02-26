@@ -1,63 +1,90 @@
-﻿// Copyright (c) 2022 VacuumBreather. All rights reserved.
-// Licensed under the MIT License. See LICENSE in the project root for license information.
-
+﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
-using VacuumBreather.Mvvm.Lifecycle;
+using CommunityToolkit.Diagnostics;
+using VacuumBreather.Mvvm.Core;
 
-namespace VacuumBreather.Mvvm.Wpf
+namespace VacuumBreather.Mvvm.Wpf;
+
+/// <summary>A base class for dialog screens.</summary>
+public abstract class DialogScreen : Screen, IChild<DialogConductor>
 {
-    /// <summary>A base class for dialog screens.</summary>
-    public abstract class DialogScreen : Screen
+    private TaskCompletionSource<bool?>? _taskCompletionSource;
+    private CancellationTokenRegistration? _cancellationTokenRegistration;
+    private bool? _result;
+
+    /// <summary>Initializes a new instance of the <see cref="DialogScreen" /> class.</summary>
+    protected DialogScreen()
     {
-        private readonly TaskCompletionSource<bool?> taskCompletionSource = new();
-        private bool? result;
+        CloseDialogCommand = new AsyncRelayCommand<bool?>(r => TryCloseAsync(r));
+    }
 
-        /// <summary>Initializes a new instance of the <see cref="DialogScreen" /> class.</summary>
-        protected DialogScreen()
+    /// <summary>Gets the command to close the dialog.</summary>
+    public AsyncRelayCommand<bool?> CloseDialogCommand { get; }
+
+    /// <inheritdoc />
+    public new DialogConductor? Parent
+    {
+        get => (DialogConductor?)base.Parent;
+        set => base.Parent = value;
+    }
+
+    /// <inheritdoc />
+    public sealed override ValueTask<bool> CanCloseAsync(CancellationToken cancellationToken = default)
+    {
+        return ValueTask.FromResult(true);
+    }
+
+    /// <inheritdoc />
+    public sealed override ValueTask TryCloseAsync(bool? dialogResult = null,
+                                                   CancellationToken cancellationToken = default)
+    {
+        _result = dialogResult;
+
+        return base.TryCloseAsync(dialogResult, cancellationToken);
+    }
+
+    /// <summary>
+    ///     Gets the result this dialog was closed with.
+    /// </summary>
+    /// <returns>
+    ///     A <see cref="ValueTask" /> representing the asynchronous operation.
+    ///     The ValueTask result contains the result this dialog was closed with.
+    /// </returns>
+    /// <exception cref="InvalidOperationException">Attempting to await the result before initializing the dialog.</exception>
+    public async ValueTask<bool?> GetDialogResultAsync()
+    {
+        if (!IsInitialized)
         {
-            CloseDialogCommand = new AsyncRelayCommand<bool?>(r => TryCloseAsync(r));
+            ThrowHelper.ThrowInvalidOperationException(
+                $"It was attempted to await the dialog result of {GetType().Name} before initializing it.");
         }
 
-        /// <summary>Gets the command to close the dialog.</summary>
-        public AsyncRelayCommand<bool?> CloseDialogCommand { get; }
+        return await _taskCompletionSource!.Task.ConfigureAwait(true);
+    }
 
-        /// <summary>
-        ///     Gets the result this dialog was closed with.
-        /// </summary>
-        /// <returns>
-        ///     A <see cref="ValueTask" /> representing the asynchronous operation.
-        ///     The ValueTask result contains the result this dialog was closed with.
-        /// </returns>
-        public async ValueTask<bool?> GetDialogResultAsync()
+    /// <inheritdoc />
+    protected override async ValueTask OnDeactivateAsync(bool close, CancellationToken cancellationToken)
+    {
+        if (IsInitialized && close)
         {
-            return await this.taskCompletionSource.Task;
+            await _cancellationTokenRegistration!.Value.DisposeAsync().ConfigureAwait(true);
+            _cancellationTokenRegistration = null;
+            _taskCompletionSource!.TrySetResult(_result);
+            _taskCompletionSource = null;
+            IsInitialized = false;
         }
 
-        /// <inheritdoc />
-        public sealed override ValueTask TryCloseAsync(bool? dialogResult = null,
-            CancellationToken cancellationToken = default)
-        {
-            this.result = dialogResult;
+        await base.OnDeactivateAsync(close, cancellationToken).ConfigureAwait(true);
+    }
 
-            return base.TryCloseAsync(dialogResult, cancellationToken);
-        }
+    /// <inheritdoc />
+    protected override ValueTask OnInitializeAsync(CancellationToken cancellationToken)
+    {
+        _taskCompletionSource = new TaskCompletionSource<bool?>();
 
-        /// <inheritdoc />
-        protected override ValueTask OnDeactivateAsync(bool close, CancellationToken cancellationToken)
-        {
-            if (close)
-            {
-                this.taskCompletionSource.TrySetResult(this.result);
-            }
+        _cancellationTokenRegistration = cancellationToken.Register(() => _taskCompletionSource!.TrySetResult(default));
 
-            return base.OnDeactivateAsync(close, cancellationToken);
-        }
-
-        /// <inheritdoc />
-        public sealed override ValueTask<bool> CanCloseAsync(CancellationToken cancellationToken = default)
-        {
-            return ValueTask.FromResult(true);
-        }
+        return base.OnInitializeAsync(cancellationToken);
     }
 }

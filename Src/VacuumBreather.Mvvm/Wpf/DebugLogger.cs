@@ -1,68 +1,61 @@
-﻿// Copyright (c) 2022 VacuumBreather. All rights reserved.
-// Licensed under the MIT License. See LICENSE in the project root for license information.
-
-using System;
+﻿using System;
 using System.Diagnostics;
+using CommunityToolkit.Diagnostics;
 using Microsoft.Extensions.Logging;
+using VacuumBreather.Mvvm.Core;
 
-namespace VacuumBreather.Mvvm.Wpf
+namespace VacuumBreather.Mvvm.Wpf;
+
+/// <summary>A logger writing to the standard debug output.</summary>
+public sealed class DebugLogger : ILogger
 {
-    /// <summary>A logger writing to the standard debug output.</summary>
-    public class DebugLogger : ILogger
+    private readonly string _categoryName;
+    private readonly LogLevel _minimumLogLevel;
+
+    /// <summary>Initializes a new instance of the <see cref="DebugLogger" /> class.</summary>
+    /// <param name="categoryName">The category this logger is used by.</param>
+    /// <param name="minimumLogLevel">The minimum <see cref="LogLevel" /> this logger will handle.</param>
+    public DebugLogger(string categoryName, LogLevel minimumLogLevel = LogLevel.Information)
     {
-        private readonly string categoryName;
-        private readonly LogLevel minimumLogLevel;
+        _minimumLogLevel = minimumLogLevel;
+        _categoryName = string.IsNullOrEmpty(categoryName) ? nameof(DebugLogger) : categoryName;
+    }
 
-        /// <summary>Initializes a new instance of the <see cref="DebugLogger" /> class.</summary>
-        /// <param name="categoryName">The category this logger is used by.</param>
-        /// <param name="minimumLogLevel">The minimum <see cref="LogLevel" /> this logger will handle.</param>
-        public DebugLogger(string categoryName, LogLevel minimumLogLevel = LogLevel.Information)
+    /// <inheritdoc />
+    public bool IsEnabled(LogLevel logLevel)
+    {
+        return Debugger.IsAttached && (logLevel != LogLevel.None) && (logLevel >= _minimumLogLevel);
+    }
+
+    /// <inheritdoc />
+    public void Log<TState>(LogLevel logLevel,
+                            EventId eventId,
+                            TState state,
+                            Exception? exception,
+                            Func<TState, Exception?, string> formatter)
+    {
+        if (!IsEnabled(logLevel))
         {
-            this.minimumLogLevel = minimumLogLevel;
-            this.categoryName = string.IsNullOrEmpty(categoryName) ? nameof(DebugLogger) : categoryName;
+            return;
         }
 
-        /// <summary>Scoped logging is not supported by this logger.</summary>
-        IDisposable ILogger.BeginScope<TState>(TState state)
+        Guard.IsNotNull(formatter);
+
+        string message = formatter(state, exception);
+
+        if (string.IsNullOrEmpty(message))
         {
-            return Disposable.Empty;
+            return;
         }
 
-        /// <inheritdoc />
-        public bool IsEnabled(LogLevel logLevel)
-        {
-            return Debugger.IsAttached &&
-                   logLevel != LogLevel.None &&
-                   logLevel >= this.minimumLogLevel;
-        }
+        message = $"[{_categoryName}] [{logLevel}] {message}";
 
-        /// <inheritdoc />
-        public void Log<TState>(LogLevel logLevel,
-            EventId eventId,
-            TState state,
-            Exception? exception,
-            Func<TState, Exception?, string> formatter)
-        {
-            if (!IsEnabled(logLevel))
-            {
-                return;
-            }
+        Debug.WriteLine(message);
+    }
 
-            if (formatter == null)
-            {
-                throw new ArgumentNullException(nameof(formatter));
-            }
-
-            string message = formatter(state, exception);
-
-            if (string.IsNullOrEmpty(message))
-            {
-                return;
-            }
-
-            message = $"[{this.categoryName}] [{logLevel}] {message}";
-
-            Debug.WriteLine(message);
-        }
+    /// <inheritdoc />
+    IDisposable ILogger.BeginScope<TState>(TState state)
+    {
+        return Disposable.Empty;
     }
 }

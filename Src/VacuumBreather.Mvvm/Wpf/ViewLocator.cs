@@ -1,393 +1,205 @@
-﻿// Copyright (c) 2022 VacuumBreather. All rights reserved.
-// Licensed under the MIT License. See LICENSE in the project root for license information.
-
-using System;
+﻿using System;
 using System.Collections.Generic;
-using System.Linq;
+using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Windows;
-using System.Windows.Controls;
-using Microsoft.Extensions.Logging;
 
-namespace VacuumBreather.Mvvm.Wpf
+namespace VacuumBreather.Mvvm.Wpf;
+
+/// <summary>Responsible for mapping view-model types to their corresponding view types.</summary>
+public class ViewLocator
 {
-    /// <summary>Responsible for mapping view-model types to their corresponding view types.</summary>
-    public class ViewLocator
+    /// <summary>
+    ///     A dictionary that contains all the registered factories for the views.
+    /// </summary>
+    private readonly Dictionary<string, Func<FrameworkElement?>> _factories = new();
+
+    /// <summary>
+    ///     A dictionary that contains all the registered ViewModel types for the views.
+    /// </summary>
+    private readonly Dictionary<string, Type> _typeFactories = new();
+
+    /// <summary>
+    ///     The default view factory which provides the view type as a parameter.
+    /// </summary>
+    private Func<Type, FrameworkElement?> _defaultViewFactory;
+
+    /// <summary>
+    ///     Default view type to view-model type resolver, assumes the view-model is in same assembly as the view type, but in
+    ///     the "ViewModels" namespace.
+    /// </summary>
+    private Func<Type, Type?> _defaultViewModelTypeToViewTypeResolver = viewModelType =>
     {
-        private const string DefaultViewSuffix = "View";
+        var viewModelName = viewModelType.FullName;
+        viewModelName = viewModelName?.Replace(".ViewModels.", ".Views.", StringComparison.InvariantCulture);
+        var viewAssemblyName = viewModelType.GetTypeInfo().Assembly.FullName;
 
-        private readonly List<string> viewSuffixList = new();
+        viewModelName = viewModelName?.Replace("ViewModel", "View", StringComparison.InvariantCulture);
 
-        private string defaultSubNsViewModels = "ViewModels";
-        private string defaultSubNsViews = "Views";
+        var viewName = $"{viewModelName}, {viewAssemblyName}";
 
-        private bool includeViewSuffixInVmNames;
-        private string nameFormat = string.Empty;
-        private bool useNameSuffixesInMappings;
-        private string viewModelSuffix = "ViewModel";
+        return Type.GetType(viewName);
+    };
 
-        /// <summary>Initializes a new instance of the <see cref="ViewLocator" /> class.</summary>
-        /// <param name="assemblySource">
-        ///     The source of assemblies that contain view and view-model types
-        ///     relevant to this instance.
-        /// </param>
-        /// <param name="serviceProvider">The service provider used to resolve views.</param>
-        public ViewLocator(AssemblySource assemblySource, IServiceProvider serviceProvider)
+    /// <summary>Initializes a new instance of the <see cref="ViewLocator" /> class.</summary>
+    /// <param name="serviceProvider">The <see cref="IServiceProvider" /> used to resolve views.</param>
+    public ViewLocator(IServiceProvider serviceProvider)
+    {
+        _defaultViewFactory = viewType =>
         {
-            AssemblySource = assemblySource;
-            ServiceProvider = serviceProvider;
-        }
-
-        /// <summary>
-        ///     Gets the source of assemblies that contain view and view-model types relevant to this
-        ///     instance.
-        /// </summary>
-        /// <value>The source of assemblies that contain view and view-model types relevant to this instance.</value>
-        public AssemblySource AssemblySource { get; }
-
-        private static ILogger Logger => LogManager.FrameworkLogger;
-
-        private NameTransformer NameTransformer { get; } = new();
-
-        private IServiceProvider ServiceProvider { get; }
-
-        /// <summary>Adds a default type mapping using the standard namespace mapping convention.</summary>
-        /// <param name="viewSuffix">(Optional) Suffix for type name. Should be "View" or synonym of "View".</param>
-        public void AddDefaultTypeMapping(string viewSuffix = DefaultViewSuffix)
-        {
-            if (!this.useNameSuffixesInMappings)
+            if (viewType.IsInterface ||
+                viewType.IsAbstract ||
+                !viewType.IsDerivedFromOrImplements(typeof(FrameworkElement)))
             {
-                return;
+                return null;
             }
 
-            // Check for <Namespace>.<BaseName><ViewSuffix> construct.
-            AddNamespaceMapping(string.Empty, string.Empty, viewSuffix);
-
-            // Check for <Namespace>.ViewModels.<NameSpace>.<BaseName><ViewSuffix> construct.
-            AddSubNamespaceMapping(this.defaultSubNsViewModels, this.defaultSubNsViews, viewSuffix);
-        }
-
-        /// <summary>Adds a standard type mapping based on simple namespace mapping.</summary>
-        /// <param name="nsSource">Namespace of source type.</param>
-        /// <param name="nsTargets">Namespaces of target type.</param>
-        /// <param name="viewSuffix">(Optional) Suffix for type name. Should be "View" or synonym of "View".</param>
-        public void AddNamespaceMapping(string nsSource,
-            IEnumerable<string> nsTargets,
-            string viewSuffix = DefaultViewSuffix)
-        {
-            // We need to terminate with "." in order to concatenate with type name later.
-            string nsEncoded = RegExHelper.NamespaceToRegEx(nsSource + ".");
-
-            // Start the pattern search from beginning of string ("^")
-            // unless the original string was blank (i.e. special case to indicate "append target to source").
-            if (!string.IsNullOrEmpty(nsSource))
-            {
-                nsEncoded = "^" + nsEncoded;
-            }
-
-            // Capture the namespace as "nsOrig" in case we need to use it in the output in the future.
-            string nsReplace = RegExHelper.GetCaptureGroup("nsOrig", nsEncoded);
-
-            // ReSharper disable once PossibleMultipleEnumeration
-            string[] nsTargetsRegEx = nsTargets.Select(t => t + ".").ToArray();
-
-            AddTypeMapping(nsReplace, null, nsTargetsRegEx, viewSuffix);
-        }
-
-        /// <summary>Adds a standard type mapping based on simple namespace mapping.</summary>
-        /// <param name="nsSource">Namespace of source type.</param>
-        /// <param name="nsTarget">Namespace of target type.</param>
-        /// <param name="viewSuffix">(Optional) Suffix for type name. Should  be "View" or synonym of "View".</param>
-        public void AddNamespaceMapping(string nsSource, string nsTarget, string viewSuffix = DefaultViewSuffix)
-        {
-            AddNamespaceMapping(
-                nsSource,
-                new[] { nsTarget },
-                viewSuffix);
-        }
-
-        /// <summary>Adds a standard type mapping by substituting one sub-namespace for another.</summary>
-        /// <param name="nsSource">Sub-namespace of source type.</param>
-        /// <param name="nsTargets">Sub-namespaces of target type.</param>
-        /// <param name="viewSuffix">(Optional) Suffix for type name. Should  be "View" or synonym of "View".</param>
-        public void AddSubNamespaceMapping(string? nsSource,
-            IEnumerable<string?> nsTargets,
-            string viewSuffix = DefaultViewSuffix)
-        {
-            // We need to terminate with "." in order to concatenate with type name later.
-            string nsEncoded = RegExHelper.NamespaceToRegEx(nsSource + ".");
-
-            string rxBeforeTgt = string.Empty;
-            string rxAfterSrc = string.Empty;
-            string rxAfterTgt = string.Empty;
-            string rxBeforeSrc = string.Empty;
-
-            if (!string.IsNullOrEmpty(nsSource))
-            {
-                if (!nsSource.StartsWith("*"))
-                {
-                    rxBeforeSrc = RegExHelper.GetNamespaceCaptureGroup("nsBefore");
-                    rxBeforeTgt = @"${nsBefore}";
-                }
-
-                if (!nsSource.EndsWith("*"))
-                {
-                    rxAfterSrc = RegExHelper.GetNamespaceCaptureGroup("nsAfter");
-                    rxAfterTgt = "${nsAfter}";
-                }
-            }
-
-            string rxMid = RegExHelper.GetCaptureGroup("subNs", nsEncoded);
-            string rxReplace = string.Concat(rxBeforeSrc, rxMid, rxAfterSrc);
-
-            // ReSharper disable once PossibleMultipleEnumeration
-            string[] nsTargetsRegEx = nsTargets.Select(t => string.Concat(rxBeforeTgt, t, ".", rxAfterTgt)).ToArray();
-
-            AddTypeMapping(rxReplace, null, nsTargetsRegEx, viewSuffix);
-        }
-
-        /// <summary>Adds a standard type mapping by substituting one sub-namespace for another.</summary>
-        /// <param name="nsSource">Sub-namespace of source type.</param>
-        /// <param name="nsTarget">Sub-namespace of target type.</param>
-        /// <param name="viewSuffix">(Optional) Suffix for type name. Should  be "View" or synonym of "View".</param>
-        public void AddSubNamespaceMapping(string? nsSource, string? nsTarget, string viewSuffix = DefaultViewSuffix)
-        {
-            AddSubNamespaceMapping(
-                nsSource,
-                new[] { nsTarget },
-                viewSuffix);
-        }
-
-        /// <summary>Adds a standard type mapping based on namespace RegEx replace and filter patterns.</summary>
-        /// <param name="nsSourceReplaceRegEx">RegEx replace pattern for source namespace.</param>
-        /// <param name="nsSourceFilterRegEx">RegEx filter pattern for source namespace.</param>
-        /// <param name="nsTargetsRegEx">Array of RegEx replace values for target namespaces.</param>
-        /// <param name="viewSuffix">(Optional) Suffix for type name. Should  be "View" or synonym of "View".</param>
-        public void AddTypeMapping(string nsSourceReplaceRegEx,
-            string? nsSourceFilterRegEx,
-            IEnumerable<string> nsTargetsRegEx,
-            string viewSuffix = DefaultViewSuffix)
-        {
-            RegisterViewSuffix(viewSuffix);
-
-            string repSuffix = this.useNameSuffixesInMappings ? viewSuffix : string.Empty;
-
-            const string baseGroup = "${basename}";
-
-            string rxBase = RegExHelper.GetNameCaptureGroup("basename");
-            string suffix = string.Empty;
-
-            if (this.useNameSuffixesInMappings)
-            {
-                suffix = this.viewModelSuffix;
-
-                if (!this.viewModelSuffix.Contains(viewSuffix) && this.includeViewSuffixInVmNames)
-                {
-                    suffix = viewSuffix + suffix;
-                }
-            }
-
-            string? rxSourceFilter = string.IsNullOrEmpty(nsSourceFilterRegEx)
-                ? null
-                : string.Concat(
-                    nsSourceFilterRegEx,
-                    string.Format(this.nameFormat, RegExHelper.NameRegEx, suffix),
-                    "$");
-
-            string rxSuffix = RegExHelper.GetCaptureGroup("suffix", suffix);
-
-            NameTransformer.AddRule(
-                string.Concat(nsSourceReplaceRegEx, string.Format(this.nameFormat, rxBase, rxSuffix), "$"),
-
-                // ReSharper disable once PossibleMultipleEnumeration
-                nsTargetsRegEx.Select(t => t + string.Format(this.nameFormat, baseGroup, repSuffix)).ToArray(),
-                rxSourceFilter);
-        }
-
-        /// <summary>Adds a standard type mapping based on namespace RegEx replace and filter patterns.</summary>
-        /// <param name="nsSourceReplaceRegEx">RegEx replace pattern for source namespace.</param>
-        /// <param name="nsSourceFilterRegEx">RegEx filter pattern for source namespace.</param>
-        /// <param name="nsTargetRegEx">RegEx replace value for target namespace.</param>
-        /// <param name="viewSuffix">(Optional) Suffix for type name. Should  be "View" or synonym of "View".</param>
-        public void AddTypeMapping(string nsSourceReplaceRegEx,
-            string? nsSourceFilterRegEx,
-            string nsTargetRegEx,
-            string viewSuffix = DefaultViewSuffix)
-        {
-            AddTypeMapping(
-                nsSourceReplaceRegEx,
-                nsSourceFilterRegEx,
-                new[] { nsTargetRegEx },
-                viewSuffix);
-        }
-
-        /// <summary>
-        ///     Specifies how type mappings are created, including default type mappings. Calling this
-        ///     method will clear all existing name transformation rules and create new default type mappings
-        ///     according to the configuration.
-        /// </summary>
-        /// <param name="config">
-        ///     An instance of TypeMappingConfiguration that provides the settings for
-        ///     configuration
-        /// </param>
-        public void ConfigureTypeMappings(TypeMappingConfiguration config)
-        {
-            if (string.IsNullOrEmpty(config.DefaultSubNamespaceForViews))
-            {
-                throw new ArgumentException($"{config.DefaultSubNamespaceForViews} cannot be blank.");
-            }
-
-            if (string.IsNullOrEmpty(config.DefaultSubNamespaceForViewModels))
-            {
-                throw new ArgumentException($"{config.DefaultSubNamespaceForViewModels} cannot be blank.");
-            }
-
-            if (string.IsNullOrEmpty(config.NameFormat))
-            {
-                throw new ArgumentException($"{config.NameFormat} cannot be blank.");
-            }
-
-            NameTransformer.Clear();
-            this.viewSuffixList.Clear();
-
-            this.defaultSubNsViews = config.DefaultSubNamespaceForViews;
-            this.defaultSubNsViewModels = config.DefaultSubNamespaceForViewModels;
-            this.nameFormat = config.NameFormat;
-            this.useNameSuffixesInMappings = config.UseNameSuffixesInMappings;
-            this.viewModelSuffix = config.ViewModelSuffix;
-            this.viewSuffixList.AddRange(config.ViewSuffixList);
-            this.includeViewSuffixInVmNames = config.IncludeViewSuffixInViewModelNames;
-
-            SetAllDefaults();
-        }
-
-        /// <summary>Retrieves the view from the IoC container or tries to create it if not found.</summary>
-        /// <param name="viewType">The type of view to create.</param>
-        /// <remarks>Pass the type of view as a parameter and receive an instance of the view.</remarks>
-        public UIElement GetOrCreateViewType(Type viewType)
-        {
-            TextBlock CreatePlaceholderView()
-            {
-                return new TextBlock { Text = $"Cannot create {viewType.FullName}." };
-            }
-
-            if (viewType.IsInterface || viewType.IsAbstract || !viewType.IsDerivedFromOrImplements(typeof(UIElement)))
-            {
-                return CreatePlaceholderView();
-            }
-
-            if (ServiceProvider.GetService(viewType) is UIElement view)
+            if (serviceProvider.GetService(viewType) is FrameworkElement view)
             {
                 return view;
             }
 
             try
             {
-                view = (UIElement)Activator.CreateInstance(viewType)!;
+                return (FrameworkElement?)Activator.CreateInstance(viewType);
             }
-            catch (Exception)
+            catch (Exception exception) when (exception is ArgumentException or
+                                                           NotSupportedException or
+                                                           TargetInvocationException or
+                                                           MethodAccessException or
+                                                           MemberAccessException or
+                                                           InvalidComObjectException or
+                                                           MissingMethodException or
+                                                           COMException or
+                                                           TypeLoadException)
             {
-                return CreatePlaceholderView();
+                return null;
             }
+        };
+    }
 
-            return view;
-        }
+    /// <summary>
+    ///     <para>Automatically looks up the view that corresponds to the current view-model, using two strategies:</para>
+    ///     <list type="bullet">
+    ///         <item>
+    ///             <description>It first looks to see if there is a mapping registered for that view-model.</description>
+    ///         </item>
+    ///         <item>
+    ///             <description>If not it will fallback to the convention based approach.</description>
+    ///         </item>
+    ///     </list>
+    /// </summary>
+    /// <param name="viewModel">The view-model object.</param>
+    /// <param name="setDataContextCallback">The call back to use to create the binding between the view and view-model.</param>
+    /// <returns>The located view; or <see langword="null" /> if no matching view could be found.</returns>
+    public FrameworkElement? LocateViewForViewModel(object viewModel,
+                                                    Action<object, FrameworkElement>? setDataContextCallback = default)
+    {
+        // Try mappings first
+        var view = GetViewForViewModelFromFactory(viewModel);
 
-        /// <summary>Locates the view for the specified model instance.</summary>
-        /// <param name="model">The model.</param>
-        /// <returns>The view.</returns>
-        /// <remarks>
-        ///     Pass the model instance, display location (or null) and the context (or null) as
-        ///     parameters and receive a view instance.
-        /// </remarks>
-        public UIElement LocateForModel(object model)
+        // Try to use view type
+        if (view is null)
         {
-            return LocateForModelType(model.GetType());
+            // Check type mappings
+            // Fallback to convention based
+            var viewType = LocateViewTypeForViewModelType(viewModel.GetType());
+
+            if (viewType is null)
+            {
+                return null;
+            }
+
+            view = _defaultViewFactory(viewType);
         }
 
-        /// <summary>Locates the view for the specified model type.</summary>
-        /// <param name="modelType">The type of the model.</param>
-        /// <returns>The view.</returns>
-        /// <remarks>
-        ///     Pass the model type, display location (or null) and the context instance (or null) as
-        ///     parameters and receive a view instance.
-        /// </remarks>
-        public UIElement LocateForModelType(Type modelType)
+        if (view is not null)
         {
-            Type? viewType = LocateTypeForModelType(modelType);
-
-            return viewType == null
-                ? new TextBlock { Text = $"Cannot find view for {modelType}." }
-                : GetOrCreateViewType(viewType);
+            setDataContextCallback?.Invoke(viewModel, view);
         }
 
-        /// <summary>Locates the view type based on the specified model type.</summary>
-        /// <param name="modelType">The model type.</param>
-        /// <returns>The located view type or <c>null</c> if no such type could be found.</returns>
-        public Type? LocateTypeForModelType(Type modelType)
-        {
-            string modelTypeName = modelType.FullName ?? string.Empty;
+        return view;
+    }
 
-            int index = modelTypeName.IndexOf('`') < 0 ? modelTypeName.Length : modelTypeName.IndexOf('`');
+    /// <summary>
+    ///     Locates the type of the view type for view-model.
+    /// </summary>
+    /// <param name="viewModelType">Type of the view-model.</param>
+    /// <returns>The located view type; or <see langword="null" /> if no matching type could be found.</returns>
+    public Type? LocateViewTypeForViewModelType(Type viewModelType)
+    {
+        var viewModelKey = viewModelType.ToString();
 
-            modelTypeName = modelTypeName[..index];
+        return _typeFactories.TryGetValue(viewModelKey, out var value)
+            ? value
+            : _defaultViewModelTypeToViewTypeResolver(viewModelType);
+    }
 
-            List<string> viewTypes = TransformName(modelTypeName).ToList();
-            Type? viewType = AssemblySource.FindTypeByNames(viewTypes);
+    /// <summary>
+    ///     Registers the view factory for the specified view-model type.
+    /// </summary>
+    /// <typeparam name="TViewModel">The view-model type.</typeparam>
+    /// <param name="factory">The view factory.</param>
+    public void Register<TViewModel>(Func<FrameworkElement> factory)
+    {
+        Register(typeof(TViewModel).ToString(), factory);
+    }
 
-            if (viewType is { })
-            {
-                return viewType;
-            }
+    /// <summary>
+    ///     Registers the view factory for the specified view-model type name.
+    /// </summary>
+    /// <param name="viewModelTypeName">The name of the view-model type.</param>
+    /// <param name="factory">The view factory.</param>
+    public void Register(string viewModelTypeName, Func<FrameworkElement> factory)
+    {
+        _factories[viewModelTypeName] = factory;
+    }
 
-            if (viewTypes.Any())
-            {
-                Logger.LogDebug(
-                    "No view found for {ModelType} - no match among {ViewTypes}",
-                    modelType.Name,
-                    string.Join(", ", viewTypes.ToArray()));
-            }
-            else
-            {
-                Logger.LogDebug("No view found for {ModelType}", modelType.Name);
-            }
+    /// <summary>
+    ///     Registers a view type for the specified view-model type.
+    /// </summary>
+    /// <typeparam name="TViewModel">The view-model type.</typeparam>
+    /// <typeparam name="TView">The view type.</typeparam>
+    public void Register<TViewModel, TView>()
+    {
+        var viewModelType = typeof(TViewModel);
+        var viewType = typeof(TView);
 
-            return viewType;
-        }
+        Register(viewModelType.ToString(), viewType);
+    }
 
-        /// <summary>
-        ///     This method registers a View suffix or synonym so that View Context resolution works
-        ///     properly. It is automatically called internally when calling AddNamespaceMapping(),
-        ///     AddDefaultTypeMapping(), or AddTypeMapping(). It should not need to be called explicitly unless
-        ///     a rule that handles synonyms is added directly through the NameTransformer.
-        /// </summary>
-        /// <param name="viewSuffix">Suffix for type name. Should  be "View" or synonym of "View".</param>
-        public void RegisterViewSuffix(string viewSuffix)
-        {
-            if (this.viewSuffixList.All(s => s != viewSuffix))
-            {
-                this.viewSuffixList.Add(viewSuffix);
-            }
-        }
+    /// <summary>
+    ///     Registers a view type for the specified view-model.
+    /// </summary>
+    /// <param name="viewModelTypeName">The view-model type name.</param>
+    /// <param name="viewType">The view type.</param>
+    public void Register(string viewModelTypeName, Type viewType)
+    {
+        _typeFactories[viewModelTypeName] = viewType;
+    }
 
-        /// <summary>Transforms a ViewModel type name into all of its possible View type names.</summary>
-        /// <param name="typeName">The name of the ViewModel type being resolved to its companion View.</param>
-        /// <returns>Enumeration of transformed names.</returns>
-        public IEnumerable<string> TransformName(string typeName)
-        {
-            return NameTransformer.Transform(typeName);
-        }
+    /// <summary>
+    ///     Sets the default view factory.
+    /// </summary>
+    /// <param name="viewFactory">The view-model factory which provides the view-model type as a parameter.</param>
+    public void SetDefaultViewModelFactory(Func<Type, FrameworkElement> viewFactory)
+    {
+        _defaultViewFactory = viewFactory;
+    }
 
-        private void SetAllDefaults()
-        {
-            if (this.useNameSuffixesInMappings)
-            {
-                // Add support for all view suffixes.
-                this.viewSuffixList.ForEach(AddDefaultTypeMapping);
-            }
-            else
-            {
-                AddSubNamespaceMapping(this.defaultSubNsViewModels, this.defaultSubNsViews);
-            }
-        }
+    /// <summary>
+    ///     Sets the default view-model type to view type resolver.
+    /// </summary>
+    /// <param name="viewModelTypeToViewTypeResolver">The view type to view-model type resolver.</param>
+    public void SetDefaultViewModelTypeToViewTypeResolver(Func<Type, Type> viewModelTypeToViewTypeResolver)
+    {
+        _defaultViewModelTypeToViewTypeResolver = viewModelTypeToViewTypeResolver;
+    }
+
+    private FrameworkElement? GetViewForViewModelFromFactory(object viewModel)
+    {
+        var viewModelKey = viewModel.GetType().ToString();
+
+        return _factories.TryGetValue(viewModelKey, out var value) ? value() : null;
     }
 }

@@ -1,35 +1,5 @@
-<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-    <PropertyGroup>
-        <Copyright>Copyright (c) 2022 VacuumBreather</Copyright>
-        <PackageLicenseExpression>MIT</PackageLicenseExpression>
-        <!-- <PackageProjectUrl>http://caliburnmicro.com</PackageProjectUrl>
-        <PackageIconUrl>https://raw.githubusercontent.com/Caliburn-Micro/Caliburn.Micro/master/CaliburnIcon.png</PackageIconUrl> -->
-        <Authors>Andreas Schmitt</Authors>
-        <Owners>Andreas Schmitt</Owners>
-        <PackageTags>MVVM;WPF;Screen;Model-View-ViewModel;Presentation;UI;ViewModel;Caliburn</PackageTags>
-        <PackageReleaseNotes>http://caliburnmicro.com</PackageReleaseNotes>
-        <!-- <Description>A small, yet powerful framework designed for Xaml platforms, Caliburn.Micro implements a variety of UI patterns for solving real-world problems. Patterns that are highlighted include MVVM (Presentation Model), MVP and MVC.</Description> -->
-    </PropertyGroup>
-
-    <PropertyGroup>
-        <LangVersion>10.0</LangVersion>
-        <!-- <OutputPath>..\..\bin\$(MSBuildProjectName)\$(Configuration.ToLower())\</OutputPath> -->
-        <!-- <RepositoryUrl>https://github.com/Caliburn-Micro/Caliburn.Micro</RepositoryUrl> -->
-        <RepositoryType>git</RepositoryType>
-        <!-- <EmbedUntrackedSources>true</EmbedUntrackedSources>
-        <PublishRepositoryUrl>true</PublishRepositoryUrl> -->
-        <IsTestProject>$(MSBuildProjectName.Contains('Tests'))</IsTestProject>
-        <!-- <SourceLinkEnabled>true</SourceLinkEnabled> -->
-        <GenerateDocumentationFile Condition="'$(IsTestProject)' != 'true'">true</GenerateDocumentationFile>
-        <!-- <AllowedOutputExtensionsInPackageBuildOutputFolder>$(AllowedOutputExtensionsInPackageBuildOutputFolder);.pdb</AllowedOutputExtensionsInPackageBuildOutputFolder> -->
-        <!-- <PackageOutputPath>..\..\packages</PackageOutputPath> -->
-    </PropertyGroup>
-
-    <!-- <ItemGroup>
-        <PackageReference Include="Nerdbank.GitVersioning" Version="3.3.37" PrivateAssets="All" /> 
-    </ItemGroup>
-
-    <ItemGroup Condition="'$(IsTestProject)' != 'true' and '$(SourceLinkEnabled)' != 'false'">
-        <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.0.0" PrivateAssets="All" /> 
-    </ItemGroup> -->
+<Project>
+  <PropertyGroup>
+    <CodeAnalysisRuleSet>stylecop.ruleset</CodeAnalysisRuleSet>
+  </PropertyGroup>
 </Project>
