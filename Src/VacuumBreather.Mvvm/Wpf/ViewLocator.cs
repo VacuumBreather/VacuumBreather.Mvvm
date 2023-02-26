@@ -3,10 +3,15 @@ using System.Collections.Generic;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
+using System.Windows.Media;
+using JetBrains.Annotations;
 
 namespace VacuumBreather.Mvvm.Wpf;
 
 /// <summary>Responsible for mapping view-model types to their corresponding view types.</summary>
+[PublicAPI]
 public class ViewLocator
 {
     /// <summary>
@@ -79,6 +84,18 @@ public class ViewLocator
     }
 
     /// <summary>
+    ///     Gets or sets a value indicating whether the <see cref="ViewLocator" /> should call InitializeComponent on a located
+    ///     view via reflection. This makes a code behind file with just a constructor unnecessary. Since InitializeComponent
+    ///     is guarded against multiple invocations this is safe, aside from the cost of the reflection call. Subsequent calls
+    ///     will be redundant.
+    /// </summary>
+    /// <value>
+    ///     <see langword="true" /> if the <see cref="ViewLocator" /> should call InitializeComponent on a located view via
+    ///     reflection; otherwise, <see langword="false" />.
+    /// </value>
+    public bool CallInitializeComponent { get; set; }
+
+    /// <summary>
     ///     <para>Automatically looks up the view that corresponds to the current view-model, using two strategies:</para>
     ///     <list type="bullet">
     ///         <item>
@@ -107,7 +124,7 @@ public class ViewLocator
 
             if (viewType is null)
             {
-                return null;
+                return BuildPlaceholderView(viewModel.GetType());
             }
 
             view = _defaultViewFactory(viewType);
@@ -116,6 +133,11 @@ public class ViewLocator
         if (view is not null)
         {
             setDataContextCallback?.Invoke(viewModel, view);
+
+            if (CallInitializeComponent)
+            {
+                InitializeComponent(view);
+            }
         }
 
         return view;
@@ -194,6 +216,65 @@ public class ViewLocator
     public void SetDefaultViewModelTypeToViewTypeResolver(Func<Type, Type> viewModelTypeToViewTypeResolver)
     {
         _defaultViewModelTypeToViewTypeResolver = viewModelTypeToViewTypeResolver;
+    }
+
+    private static FrameworkElement BuildDialogPlaceholderView(Type viewModelType)
+    {
+        var yesButton = new Button { Width = 200, Height = 50, Margin = new Thickness(10), Content = "Yes" };
+        CloseDialog.SetResult(yesButton, DialogResult.Yes);
+
+        var noButton = new Button { Width = 200, Height = 50, Margin = new Thickness(10), Content = "No" };
+        CloseDialog.SetResult(noButton, DialogResult.No);
+
+        var cancelButton = new Button { Width = 200, Height = 50, Margin = new Thickness(10), Content = "Cancel" };
+        CloseDialog.SetResult(cancelButton, DialogResult.Cancel);
+
+        var buttonGrid = new UniformGrid { Columns = 3, Children = { yesButton, noButton, cancelButton } };
+        var textBlockGrid = new Grid { Height = 100, Children = { CreatePlaceholderTextBlock(viewModelType) } };
+
+        var stackPanel = new StackPanel { Children = { textBlockGrid, buttonGrid } };
+
+        return new Border
+               {
+                   HorizontalAlignment = HorizontalAlignment.Center,
+                   VerticalAlignment = VerticalAlignment.Center,
+                   Background = Brushes.Maroon,
+                   BorderThickness = new Thickness(2),
+                   Child = stackPanel,
+               };
+    }
+
+    private static FrameworkElement BuildPlaceholderView(Type viewModelType)
+    {
+        if (viewModelType.IsDerivedFromOrImplements(typeof(DialogScreen)))
+        {
+            return BuildDialogPlaceholderView(viewModelType);
+        }
+
+        return new Border { Background = Brushes.Maroon, Child = CreatePlaceholderTextBlock(viewModelType), };
+    }
+
+    private static TextBlock CreatePlaceholderTextBlock(Type viewModelType)
+    {
+        return new TextBlock
+               {
+                   Margin = new Thickness(5),
+                   Foreground = Brushes.BlanchedAlmond,
+                   FontWeight = FontWeights.DemiBold,
+                   FontSize = 16,
+                   HorizontalAlignment = HorizontalAlignment.Center,
+                   VerticalAlignment = VerticalAlignment.Center,
+                   Text = $"Placeholder view for {viewModelType.Name}",
+               };
+    }
+
+    private static void InitializeComponent(object element)
+    {
+        // When a view does not contain a code-behind file, we need to automatically call InitializeComponent.
+        // The auto-generated InitializeComponent is protected against being called multiple times, so this is always safe.
+        var method = element.GetType().GetMethod("InitializeComponent", BindingFlags.Public | BindingFlags.Instance);
+
+        method?.Invoke(element, null);
     }
 
     private FrameworkElement? GetViewForViewModelFromFactory(object viewModel)

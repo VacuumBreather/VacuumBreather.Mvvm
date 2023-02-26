@@ -270,13 +270,6 @@ public abstract class MvvmApplication : Application
     }
 
     /// <summary>
-    ///     Override to provide a sequence of all view-model types used by the application.
-    /// </summary>
-    /// <param name="services">The application <see cref="IServiceProvider" />.</param>
-    /// <returns>A sequence of all view-model types used by the application.</returns>
-    protected abstract IEnumerable<Type> GetViewModelTypes(IServiceProvider services);
-
-    /// <summary>
     ///     Resolves the main view-model <see cref="BindableObject" /> (The data context of the main window).
     /// </summary>
     /// <param name="services">The application <see cref="IServiceProvider" />.</param>
@@ -480,16 +473,12 @@ public abstract class MvvmApplication : Application
 
         Logger.LogInformation("Starting...");
 
-        var viewLocator = Services.GetRequiredService<ViewLocator>();
-
         DataTemplateManager.Logger = Services.GetService<ILoggerFactory>()?.CreateLogger(typeof(DataTemplateManager)) ??
                                      NullLogger.Instance;
 
         Logger.LogInformation("Registering data templates");
 
-        DataTemplateManager.RegisterDataTemplates(viewLocator,
-                                                  GetViewModelTypes(Services),
-                                                  Resources,
+        DataTemplateManager.RegisterDataTemplates(Resources,
                                                   template => AddServiceProviderToDictionary(template.Resources));
 
         AddServiceProviderToDictionary(Resources);
