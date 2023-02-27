@@ -2,7 +2,6 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading;
@@ -44,15 +43,17 @@ public abstract class MvvmApplication : Application
 
     private SafeCancellationTokenSource? _onEnableCancellation;
     private SafeCancellationTokenSource? _onDisableCancellation;
+    private IHostApplicationLifetime? _applicationLifetime;
 
     /// <summary>
     ///     Initializes a new instance of the <see cref="MvvmApplication" /> class.
     /// </summary>
     protected MvvmApplication()
     {
-        _host = new HostBuilder().ConfigureHostBuilder(ConfigureHostBuilder)
-                                 .ConfigureServices(RegisterRequiredServices)
-                                 .Build();
+        _host = Host.CreateDefaultBuilder()
+                    .ConfigureHostBuilder(ConfigureHostBuilder)
+                    .ConfigureServices(RegisterRequiredServices)
+                    .Build();
     }
 
     /// <summary>
@@ -63,7 +64,7 @@ public abstract class MvvmApplication : Application
     ///     <see langword="true" /> if this <see cref="MvvmApplication" /> is reacting to the main
     ///     window activation events; otherwise,  <see langword="false" />.
     /// </value>
-    protected bool IsReactingToWindowActivationEvents { get; set; } = true;
+    protected bool IsReactingToWindowActivationEvents { get; set; }
 
     /// <summary>Gets the <see cref="ILogger" /> for this instance.</summary>
     protected ILogger Logger =>
@@ -76,6 +77,12 @@ public abstract class MvvmApplication : Application
     ///     The application <see cref="IServiceProvider" />.
     /// </value>
     protected IServiceProvider Services => _host.Services;
+
+    /// <summary>
+    ///     Gets or sets the timeout for stopping gracefully. Once expired the
+    ///     host may terminate. The default value is 3 seconds.
+    /// </summary>
+    protected TimeSpan ShutdownTimeout { get; set; } = TimeSpan.FromSeconds(3);
 
     private BindableObject? ShellViewModel { get; set; }
 
@@ -102,6 +109,8 @@ public abstract class MvvmApplication : Application
 
         try
         {
+            _isInitialized = false;
+
             Logger.LogInformation("Shutting down...");
 
             using var guard = TaskCompletion.CreateGuard(out _shutdownCompletion);
@@ -115,18 +124,17 @@ public abstract class MvvmApplication : Application
 
             if (ShellViewModel is IDeactivate deactivate)
             {
-                deactivate.Deactivated += OnShellViewModelDeactivatedAsync;
                 await deactivate.DeactivateAsync(true).ConfigureAwait(true);
             }
 
             using (_host)
             {
-                await _host.StopAsync(TimeSpan.FromSeconds(3)).ConfigureAwait(true);
+                await _host.StopAsync(ShutdownTimeout).ConfigureAwait(true);
             }
         }
-        finally
+        catch
         {
-            ShutDownApplication();
+            Shutdown(-1);
         }
     }
 
@@ -173,8 +181,15 @@ public abstract class MvvmApplication : Application
     /// </param>
     protected virtual void HandleUnhandledException(Exception exception, string source)
     {
-        Debug.WriteLine(
-            $">>>>> Unhandled Exception <<<<<\nSource: {source}\nException: {exception.GetType()}: {exception.Message}");
+        Logger.LogCritical(exception, "Unhandled Exception - Source: {Source}", source);
+    }
+
+    /// <summary>
+    ///     Triggered when the application host has completed a graceful shutdown.
+    ///     The application will not exit until this method has completed.
+    /// </summary>
+    protected virtual void OnApplicationStopping()
+    {
     }
 
     /// <summary>Override this to add custom logic on initialization.</summary>
@@ -237,36 +252,26 @@ public abstract class MvvmApplication : Application
     }
 
     /// <inheritdoc />
-    [SuppressMessage("Design",
-                     "CA1031:Do not catch general exception types",
-                     Justification = "This is the last chance to catch any exceptions from unfinished tasks")]
-    protected sealed override void OnExit(ExitEventArgs e)
-    {
-        base.OnExit(e);
-
-        try
-        {
-            ThreadHelper.CleanUp();
-        }
-        catch (Exception exception)
-        {
-            HandleUnhandledException(exception, $"{nameof(ThreadHelper)}.{nameof(ThreadHelper.CleanUp)}");
-        }
-    }
-
-    /// <inheritdoc />
     protected sealed override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
 
-        async ValueTask LocalStartUp()
+        _applicationLifetime = Services.GetRequiredService<IHostApplicationLifetime>();
+        _applicationLifetime.ApplicationStarted.Register(OnApplicationStarted);
+        _applicationLifetime.ApplicationStopping.Register(OnApplicationStopping);
+        _applicationLifetime.ApplicationStopped.Register(OnApplicationStopped);
+
+        ThreadHelper.CleanUpWith(_applicationLifetime,
+                                 ShutdownTimeout,
+                                 ex => HandleUnhandledException(ex,
+                                                                $"{nameof(ThreadHelper)}.{nameof(ThreadHelper.CleanUp)}"));
+
+        async ValueTask StartHost()
         {
             await _host.StartAsync().ConfigureAwait(true);
-            await StartAsync().ConfigureAwait(true);
-            await OnEnableAsync().ConfigureAwait(true);
         }
 
-        LocalStartUp().Forget();
+        StartHost().Forget();
     }
 
     /// <summary>
@@ -307,7 +312,7 @@ public abstract class MvvmApplication : Application
 
         var viewLocator = _host.Services.GetRequiredService<ViewLocator>();
 
-        Logger.LogInformation("Configuring view locator");
+        Logger.LogDebug("Configuring view locator");
 
         ConfigureViewLocator(viewLocator);
 
@@ -317,14 +322,29 @@ public abstract class MvvmApplication : Application
         {
             Logger.LogError("Initialization failed");
 
-            ShutDownApplication();
-
             return;
         }
 
         _isInitialized = true;
 
-        Logger.LogInformation("Initialization complete");
+        Logger.LogInformation("Initialization completed");
+    }
+
+    private void OnApplicationStarted()
+    {
+        async ValueTask OnStarted()
+        {
+            await StartAsync().ConfigureAwait(true);
+            await OnEnableAsync().ConfigureAwait(true);
+        }
+
+        OnStarted().Forget();
+    }
+
+    private void OnApplicationStopped()
+    {
+        Logger.LogInformation("Shutdown completed");
+        Shutdown();
     }
 
     private async ValueTask OnDisableAsync()
@@ -372,16 +392,14 @@ public abstract class MvvmApplication : Application
         }
     }
 
-    private ValueTask OnShellViewModelDeactivatedAsync(object sender,
-                                                       DeactivationEventArgs e,
-                                                       CancellationToken cancellationToken)
+    private async ValueTask OnShellViewModelDeactivatedAsync(object sender,
+                                                             DeactivationEventArgs e,
+                                                             CancellationToken cancellationToken)
     {
         if (e.WasClosed)
         {
-            ShutDownApplication();
+            await ShutdownAsync().ConfigureAwait(true);
         }
-
-        return ValueTask.CompletedTask;
     }
 
     private void OnWindowClosing(object? _, CancelEventArgs args)
@@ -447,13 +465,6 @@ public abstract class MvvmApplication : Application
         };
     }
 
-    private void ShutDownApplication()
-    {
-        _isInitialized = false;
-
-        Current.Shutdown();
-    }
-
     private async ValueTask StartAsync()
     {
         // Guard against multiple executions.
@@ -468,20 +479,24 @@ public abstract class MvvmApplication : Application
 
         if (!_isInitialized)
         {
+            Shutdown(-1);
+
             return;
         }
 
-        Logger.LogInformation("Starting...");
+        Logger.LogInformation("Starting up...");
 
         DataTemplateManager.Logger = Services.GetService<ILoggerFactory>()?.CreateLogger(typeof(DataTemplateManager)) ??
                                      NullLogger.Instance;
 
-        Logger.LogInformation("Registering data templates");
+        Logger.LogDebug("Registering data templates");
 
         DataTemplateManager.RegisterDataTemplates(Resources,
                                                   template => AddServiceProviderToDictionary(template.Resources));
 
         AddServiceProviderToDictionary(Resources);
+
+        Logger.LogDebug("Merging resource dictionaries");
 
         var themeResources = ResolveThemeResources(Services);
 
@@ -495,12 +510,16 @@ public abstract class MvvmApplication : Application
             Resources.MergedDictionaries.Add(resource);
         }
 
+        Logger.LogDebug("Resolving main view-model");
+
         ShellViewModel = ResolveMainViewModel(Services);
 
         if (ShellViewModel is IDeactivate deactivate)
         {
             deactivate.Deactivated += OnShellViewModelDeactivatedAsync;
         }
+
+        Logger.LogDebug("Resolving main view");
 
         var mainView = ResolveMainWindow(Services);
         mainView.DataContext = ShellViewModel;

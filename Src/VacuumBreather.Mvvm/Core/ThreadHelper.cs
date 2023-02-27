@@ -5,11 +5,14 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Threading;
 using CommunityToolkit.Diagnostics;
+using JetBrains.Annotations;
+using Microsoft.Extensions.Hosting;
 using Microsoft.VisualStudio.Threading;
 
 namespace VacuumBreather.Mvvm.Core;
 
 /// <summary>Enables easy marshalling of code to the UI thread.</summary>
+[PublicAPI]
 public static class ThreadHelper
 {
     private static readonly Dispatcher? Dispatcher = Application.Current?.Dispatcher;
@@ -31,11 +34,6 @@ public static class ThreadHelper
 
         JoinableTaskCollection = JoinableTaskContext?.CreateCollection();
         JoinableTaskFactory = JoinableTaskContext?.CreateFactory(JoinableTaskCollection!);
-
-        if (Application.Current is { } application)
-        {
-            application.Exit += OnCurrentExit;
-        }
     }
 
     /// <summary>
@@ -49,8 +47,15 @@ public static class ThreadHelper
     /// <summary>
     ///     Cleans up all unfinished async work. Consecutive calls will have no effect.
     /// </summary>
-    /// <exception cref="AggregateException">Any unfinished tasks threw an exception.</exception>
-    public static void CleanUp()
+    /// <param name="cleanupTimeout">
+    ///     (Optional) The <see cref="TimeSpan" /> to wait before canceling any remaining tasks. The
+    ///     default value is zero.
+    /// </param>
+    /// <param name="exceptionHandler">
+    ///     (Optional) The handler for any exceptions that are caught during cleanup. The default
+    ///     value is <see langword="null" />.
+    /// </param>
+    public static void CleanUp(TimeSpan cleanupTimeout = default, Action<Exception>? exceptionHandler = default)
     {
         if (DisposalToken.IsCancellationRequested)
         {
@@ -58,11 +63,6 @@ public static class ThreadHelper
         }
 
         DisposeCancellationTokenSource.Cancel();
-
-        if (Application.Current is { } application)
-        {
-            application.Exit -= OnCurrentExit;
-        }
 
         try
         {
@@ -74,7 +74,7 @@ public static class ThreadHelper
                 var token = cts.Token;
                 var taskFactory = new JoinableTaskFactory(context);
 
-                cts.CancelAfter(3000);
+                cts.CancelAfter(cleanupTimeout);
                 taskFactory.Run(() => JoinableTaskCollection.JoinTillEmptyAsync(token));
             }
         }
@@ -82,16 +82,47 @@ public static class ThreadHelper
         {
             // This exception is expected because we signaled the cancellation token
         }
-        catch (AggregateException ex)
+        catch (AggregateException exception)
         {
-            // Ignore AggregateException containing only OperationCanceledException
-            ex.Handle(inner => inner is OperationCanceledException);
+            try
+            {
+                // Ignore AggregateException containing only OperationCanceledException
+                exception.Handle(inner => inner is OperationCanceledException);
+            }
+            catch (AggregateException aggregateException)
+            {
+                exceptionHandler?.Invoke(aggregateException);
+            }
+        }
+        catch (Exception ex)
+        {
+            exceptionHandler?.Invoke(ex);
         }
         finally
         {
             JoinableTaskContext?.Dispose();
             DisposeCancellationTokenSource.Dispose();
         }
+    }
+
+    /// <summary>
+    ///     Passes a <see cref="IHostApplicationLifetime" /> which provides the events to trigger cleanup of the
+    ///     <see cref="ThreadHelper" />.
+    /// </summary>
+    /// <param name="applicationLifetime">The application lifetime to trigger the cleanup process.</param>
+    /// <param name="cleanupTimeout">
+    ///     (Optional) The <see cref="TimeSpan" /> to wait before canceling any remaining tasks. The
+    ///     default value is zero.
+    /// </param>
+    /// <param name="exceptionHandler">
+    ///     (Optional) The handler for any exceptions that are caught during cleanup. The default
+    ///     value is <see langword="null" />.
+    /// </param>
+    public static void CleanUpWith(IHostApplicationLifetime applicationLifetime,
+                                   TimeSpan cleanupTimeout = default,
+                                   Action<Exception>? exceptionHandler = default)
+    {
+        applicationLifetime.ApplicationStopping.Register(() => CleanUp(cleanupTimeout, exceptionHandler));
     }
 
     /// <summary>
@@ -816,14 +847,6 @@ public static class ThreadHelper
         // caller context), and avoids getting an app into an inconsistent state in case a method faults without
         // other components being notified.
         await task.Preserve().ConfigureAwait(true);
-    }
-
-    private static void OnCurrentExit(object sender, ExitEventArgs e)
-    {
-        if (!DisposalToken.IsCancellationRequested)
-        {
-            CleanUp();
-        }
     }
 
     private static void ThrowIfDisposed()

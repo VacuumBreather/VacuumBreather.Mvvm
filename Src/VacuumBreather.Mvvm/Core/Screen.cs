@@ -1,12 +1,13 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Threading;
 using System.Threading.Tasks;
+using JetBrains.Annotations;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
 
 namespace VacuumBreather.Mvvm.Core;
 
 /// <summary>A base implementation of <see cref="IScreen" />.</summary>
+[PublicAPI]
 [SuppressMessage("Design",
                  "CA1001:Types that own disposable fields should be disposable",
                  Justification = "The fields in question are only ever instantiated in using blocks")]
@@ -23,7 +24,6 @@ public abstract class Screen : ViewAware, IScreen, IChild
     private bool _isActive;
     private bool _isInitialized;
     private object? _parent;
-    private ILogger? _logger;
 
     /// <summary>Initializes a new instance of the <see cref="Screen" /> class.</summary>
     protected Screen()
@@ -68,13 +68,6 @@ public abstract class Screen : ViewAware, IScreen, IChild
         private set => SetProperty(ref _isActive, value);
     }
 
-    /// <summary>Gets or sets the <see cref="ILogger" /> for this class.</summary>
-    protected ILogger Logger
-    {
-        get => _logger ?? NullLogger.Instance;
-        set => _logger = value;
-    }
-
     /// <inheritdoc />
     public virtual ValueTask<bool> CanCloseAsync(CancellationToken cancellationToken = default)
     {
@@ -116,35 +109,43 @@ public abstract class Screen : ViewAware, IScreen, IChild
             {
                 using var initGuard = TaskCompletion.CreateGuard(out _initializationCompletion);
 
+                Logger.LogDebug("Initializing {Screen}...", GetType().Name);
+
                 // Deactivation is not allowed to cancel initialization, so we are only
                 // using the token that was passed to us.
                 if (cancellationToken.IsCancellationRequested)
                 {
-                    Logger.LogDebug("Initialization canceled");
+                    Logger.LogDebug("Initialization of {Screen} canceled", GetType().Name);
 
                     return;
                 }
 
-                Logger.LogDebug("Initializing...");
-
                 await OnInitializeAsync(cancellationToken).ConfigureAwait(true);
+
                 IsInitialized = initialized = true;
             }
 
+            Logger.LogTrace("Activating {Screen}...", GetType().Name);
+
             if (_activateCancellation.IsCancellationRequested)
             {
-                Logger.LogDebug("Activation canceled");
+                Logger.LogTrace("Activation of {Screen} canceled", GetType().Name);
 
                 return;
             }
-
-            Logger.LogDebug("Activating...");
 
             await OnActivateAsync(_activateCancellation.Token).ConfigureAwait(true);
 
             IsActive = true;
 
             await RaiseActivatedAsync(initialized, _activateCancellation.Token).ConfigureAwait(true);
+
+            Logger.LogTrace("Activated {Screen}", GetType().Name);
+
+            if (initialized)
+            {
+                Logger.LogDebug("Initialized {Screen}", GetType().Name);
+            }
         }
     }
 
@@ -165,7 +166,7 @@ public abstract class Screen : ViewAware, IScreen, IChild
 
             if (_deactivateCancellation.IsCancellationRequested)
             {
-                Logger.LogDebug("Deactivation cancelled");
+                Logger.LogTrace("Deactivation of {Screen} canceled", GetType().Name);
 
                 return;
             }
@@ -177,7 +178,15 @@ public abstract class Screen : ViewAware, IScreen, IChild
 
             if (IsActive || (IsInitialized && close))
             {
-                Logger.LogDebug("Deactivating...");
+                if (close)
+                {
+                    Logger.LogDebug("Closing {Screen}...", GetType().Name);
+                }
+                else
+                {
+                    Logger.LogTrace("Deactivating {Screen}...", GetType().Name);
+                }
+
                 await RaiseDeactivatingAsync(close, cancellationToken).ConfigureAwait(true);
                 await OnDeactivateAsync(close, cancellationToken).ConfigureAwait(true);
 
@@ -187,7 +196,12 @@ public abstract class Screen : ViewAware, IScreen, IChild
 
                 if (close)
                 {
-                    Logger.LogDebug("Closed");
+                    Logger.LogDebug("Closed {Screen}", GetType().Name);
+                    IsInitialized = false;
+                }
+                else
+                {
+                    Logger.LogTrace("Deactivated {Screen}", GetType().Name);
                 }
             }
         }

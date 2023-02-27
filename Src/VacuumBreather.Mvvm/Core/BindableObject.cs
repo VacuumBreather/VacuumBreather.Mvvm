@@ -3,6 +3,9 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Threading;
+using JetBrains.Annotations;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace VacuumBreather.Mvvm.Core;
 
@@ -11,9 +14,11 @@ namespace VacuumBreather.Mvvm.Core;
 /// </summary>
 /// <seealso cref="VacuumBreather.Mvvm.Core.IBindableObject" />
 /// <seealso cref="System.ComponentModel.INotifyPropertyChanging" />
+[PublicAPI]
 public abstract class BindableObject : IBindableObject, INotifyPropertyChanging
 {
     private int _suspensionCount;
+    private ILogger? _logger;
 
     /// <inheritdoc />
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -23,6 +28,13 @@ public abstract class BindableObject : IBindableObject, INotifyPropertyChanging
 
     /// <inheritdoc />
     public bool IsNotifying => _suspensionCount == 0;
+
+    /// <summary>Gets or sets the <see cref="ILogger" /> for this class.</summary>
+    protected ILogger Logger
+    {
+        get => _logger ?? NullLogger.Instance;
+        set => _logger = value;
+    }
 
     /// <summary>Raises a change notification indicating that all bindings should be refreshed.</summary>
     public virtual void Refresh()

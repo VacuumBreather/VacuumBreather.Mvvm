@@ -49,6 +49,7 @@ public static class View
         new PropertyMetadata(default(Guid)));
 
     private static ILogger? _logger;
+    private static bool? _isLoggingDebug;
     private static ViewLocator? _viewLocator;
 
     /// <summary>Sets the name of the content property, to which the view will be assigned.</summary>
@@ -220,16 +221,18 @@ public static class View
         _logger ??= GetServiceProvider(targetLocation).GetService<ILoggerFactory>()?.CreateLogger(typeof(View)) ??
                     NullLogger.Instance;
 
+        _isLoggingDebug ??= _logger.IsEnabled(LogLevel.Debug);
+
         if (GetCachedViewFor(viewModel, contextLocation) is { } cachedView)
         {
-            if (_logger.IsEnabled(LogLevel.Debug))
+            if (_isLoggingDebug.Value)
             {
                 // Only do this call if the log level is active
                 // because FindAncestorDeclaredInUserControlOrWindowOrAdorner() is expensive.
-                _logger.LogDebug(
-                    "Using cached view for {ViewModel} at location {@LocationInView} with context ID {ContextID}",
-                    viewModel,
-                    contextLocation.FindAncestorDeclaredInUserControlOrWindowOrAdorner(),
+                _logger.LogTrace(
+                    "Using cached view for {ViewModel} at location {LocationInView} with context ID {ContextID}",
+                    viewModel.GetType(),
+                    contextLocation.FindAncestorDeclaredInUserControlOrWindowOrAdorner()?.GetType(),
                     context);
             }
 
@@ -261,15 +264,15 @@ public static class View
                 context = Guid.NewGuid();
             }
 
-            if (_logger.IsEnabled(LogLevel.Debug))
+            if (_isLoggingDebug.Value)
             {
                 // Only do this if the log level is active because GetAncestorDeclaredInUserControl()
                 // should not be called unnecessarily.
                 _logger.LogDebug(
-                    "Attaching {@View} to {ViewModel} at location {@LocationInView} with context ID {ContextID}",
-                    view,
-                    viewAware,
-                    contextLocation.FindAncestorDeclaredInUserControlOrWindowOrAdorner(),
+                    "Attaching {View} to {ViewModel} at location {LocationInView} with context ID {ContextID}",
+                    view.GetType(),
+                    viewAware.GetType(),
+                    contextLocation.FindAncestorDeclaredInUserControlOrWindowOrAdorner()?.GetType(),
                     context);
             }
 
@@ -280,16 +283,10 @@ public static class View
 
         if (!SetContentPropertyValue(targetLocation, view, overrideContentProperty))
         {
-            var optionalPart = overrideContentProperty is null
-                ? string.Empty
-                : $" Used content property override: {overrideContentProperty}";
+            const string Message =
+                $"{nameof(SetContentPropertyValue)}() failed for {nameof(ViewLocator)}.{nameof(ViewLocator.LocateViewForViewModel)}(). Used content property override: {{OverrideContentProperty}}";
 
-            _logger.LogWarning(
-                "{SetContentProperty}() failed for {ViewLocator}.{LocateViewForViewModel}().{OptionalPart}",
-                nameof(SetContentPropertyValue),
-                nameof(ViewLocator),
-                nameof(ViewLocator.LocateViewForViewModel),
-                optionalPart);
+            _logger.LogWarning(Message, overrideContentProperty);
         }
     }
 }
