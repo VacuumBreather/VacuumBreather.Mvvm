@@ -103,6 +103,18 @@ public static class View
         d.SetValue(ModelProperty, value);
     }
 
+    private static string GetAncestorTypeName(DependencyObject? contextLocation)
+    {
+        var ancestor = contextLocation.FindAncestorDeclaredInUserControlOrWindowOrAdorner();
+        var ancestorTypeName = ancestor?.GetType().Name;
+
+        ancestorTypeName += ancestor is FrameworkElement element && !string.IsNullOrEmpty(element.Name)
+            ? $":'{element.Name}'"
+            : string.Empty;
+
+        return ancestorTypeName;
+    }
+
     private static UIElement? GetCachedViewFor(object viewModel, DependencyObject? contextLocation)
     {
         Guid context = GetContext(contextLocation);
@@ -227,12 +239,11 @@ public static class View
         {
             if (_isLoggingDebug.Value)
             {
-                // Only do this call if the log level is active
-                // because FindAncestorDeclaredInUserControlOrWindowOrAdorner() is expensive.
+                // Only do this call if the log level is active because GetAncestorTypeName() is expensive.
                 _logger.LogTrace(
                     "Using cached view for {ViewModel} at location {LocationInView} with context ID {ContextID}",
-                    viewModel.GetType(),
-                    contextLocation.FindAncestorDeclaredInUserControlOrWindowOrAdorner()?.GetType(),
+                    viewModel.GetType().Name,
+                    GetAncestorTypeName(contextLocation),
                     context);
             }
 
@@ -266,13 +277,12 @@ public static class View
 
             if (_isLoggingDebug.Value)
             {
-                // Only do this if the log level is active because GetAncestorDeclaredInUserControl()
-                // should not be called unnecessarily.
+                // Only do this call if the log level is active because GetAncestorTypeName() is expensive.
                 _logger.LogDebug(
                     "Attaching {View} to {ViewModel} at location {LocationInView} with context ID {ContextID}",
-                    view.GetType(),
-                    viewAware.GetType(),
-                    contextLocation.FindAncestorDeclaredInUserControlOrWindowOrAdorner()?.GetType(),
+                    view.GetType().Name,
+                    viewAware.GetType().Name,
+                    GetAncestorTypeName(contextLocation),
                     context);
             }
 

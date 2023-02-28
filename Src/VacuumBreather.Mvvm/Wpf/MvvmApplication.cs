@@ -135,6 +135,8 @@ public abstract class MvvmApplication : Application
         catch
         {
             Shutdown(-1);
+
+            throw;
         }
     }
 
