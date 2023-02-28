@@ -19,22 +19,14 @@ public static class ThreadHelper
     private static readonly CancellationTokenSource DisposeCancellationTokenSource = new();
     private static readonly CancellationToken DisposalToken = DisposeCancellationTokenSource.Token;
 
-    private static readonly JoinableTaskContext? JoinableTaskContext;
-    private static readonly JoinableTaskCollection? JoinableTaskCollection;
-    private static readonly JoinableTaskFactory? JoinableTaskFactory;
+    private static readonly JoinableTaskContext JoinableTaskContext = Dispatcher is null
+        ? new JoinableTaskContext()
+        : new JoinableTaskContext(Dispatcher.Thread, new DispatcherSynchronizationContext(Dispatcher));
 
-    /// <summary>
-    ///     Initializes static members of the <see cref="ThreadHelper" /> class.
-    /// </summary>
-    static ThreadHelper()
-    {
-        JoinableTaskContext = Dispatcher is null
-            ? null
-            : new JoinableTaskContext(Dispatcher.Thread, new DispatcherSynchronizationContext(Dispatcher));
+    private static readonly JoinableTaskCollection JoinableTaskCollection = JoinableTaskContext.CreateCollection();
 
-        JoinableTaskCollection = JoinableTaskContext?.CreateCollection();
-        JoinableTaskFactory = JoinableTaskContext?.CreateFactory(JoinableTaskCollection!);
-    }
+    private static readonly JoinableTaskFactory JoinableTaskFactory =
+        JoinableTaskContext.CreateFactory(JoinableTaskCollection);
 
     /// <summary>
     ///     Gets a value indicating whether the called is on the UI thread.
@@ -42,7 +34,7 @@ public static class ThreadHelper
     /// <value>
     ///     <see langword="true" /> if the called is on the UI thread; otherwise, <see langword="false" />.
     /// </value>
-    public static bool IsOnUIThread => JoinableTaskContext?.IsOnMainThread ?? true;
+    public static bool IsOnUIThread => JoinableTaskContext.IsOnMainThread;
 
     /// <summary>
     ///     Cleans up all unfinished async work. Consecutive calls will have no effect.
@@ -66,17 +58,14 @@ public static class ThreadHelper
 
         try
         {
-            if (JoinableTaskCollection is not null)
-            {
-                using var cts = new CancellationTokenSource();
-                using var context = new JoinableTaskContext(Dispatcher!.Thread);
+            using var cts = new CancellationTokenSource();
+            using var context = new JoinableTaskContext(Dispatcher!.Thread);
 
-                var token = cts.Token;
-                var taskFactory = new JoinableTaskFactory(context);
+            var token = cts.Token;
+            var taskFactory = new JoinableTaskFactory(context);
 
-                cts.CancelAfter(cleanupTimeout);
-                taskFactory.Run(() => JoinableTaskCollection.JoinTillEmptyAsync(token));
-            }
+            cts.CancelAfter(cleanupTimeout);
+            taskFactory.Run(() => JoinableTaskCollection.JoinTillEmptyAsync(token));
         }
         catch (OperationCanceledException)
         {
@@ -94,13 +83,13 @@ public static class ThreadHelper
                 exceptionHandler?.Invoke(aggregateException);
             }
         }
-        catch (Exception ex)
+        catch (Exception ex) when (exceptionHandler is not null)
         {
-            exceptionHandler?.Invoke(ex);
+            exceptionHandler.Invoke(ex);
         }
         finally
         {
-            JoinableTaskContext?.Dispose();
+            JoinableTaskContext.Dispose();
             DisposeCancellationTokenSource.Dispose();
         }
     }
@@ -140,21 +129,14 @@ public static class ThreadHelper
     {
         ThrowIfDisposed();
 
-        if (JoinableTaskFactory is null)
-        {
-            operation();
-        }
-        else
-        {
-            JoinableTaskFactory.Run(async () =>
-                                    {
-                                        // Switch to background thread.
-                                        await TaskScheduler.Default;
+        JoinableTaskFactory.Run(async () =>
+                                {
+                                    // Switch to background thread.
+                                    await TaskScheduler.Default;
 
-                                        operation();
-                                    },
-                                    creationOptions);
-        }
+                                    operation();
+                                },
+                                creationOptions);
     }
 
     /// <summary>
@@ -172,23 +154,14 @@ public static class ThreadHelper
     {
         ThrowIfDisposed();
 
-        if (JoinableTaskFactory is null)
-        {
-#pragma warning disable VSTHRD002 // Avoid problematic synchronous waits
-            Task.Run(async () => await operation().ConfigureAwait(true)).GetAwaiter().GetResult();
-#pragma warning restore VSTHRD002 // Avoid problematic synchronous waits
-        }
-        else
-        {
-            JoinableTaskFactory.Run(async () =>
-                                    {
-                                        // Switch to background thread.
-                                        await TaskScheduler.Default;
+        JoinableTaskFactory.Run(async () =>
+                                {
+                                    // Switch to background thread.
+                                    await TaskScheduler.Default;
 
-                                        await operation().ConfigureAwait(true);
-                                    },
-                                    creationOptions);
-        }
+                                    await operation().ConfigureAwait(true);
+                                },
+                                creationOptions);
     }
 
     /// <summary>
@@ -207,13 +180,6 @@ public static class ThreadHelper
                                                  JoinableTaskCreationOptions.None)
     {
         ThrowIfDisposed();
-
-        if (JoinableTaskFactory is null)
-        {
-#pragma warning disable VSTHRD002 // Avoid problematic synchronous waits
-            return Task.Run(async () => await operation().ConfigureAwait(true)).GetAwaiter().GetResult();
-#pragma warning restore VSTHRD002 // Avoid problematic synchronous waits
-        }
 
         return JoinableTaskFactory.Run(async () =>
                                        {
@@ -241,11 +207,6 @@ public static class ThreadHelper
                                                  JoinableTaskCreationOptions.None)
     {
         ThrowIfDisposed();
-
-        if (JoinableTaskFactory is null)
-        {
-            return operation();
-        }
 
         return JoinableTaskFactory.Run(async () =>
                                        {
@@ -342,21 +303,14 @@ public static class ThreadHelper
     {
         ThrowIfDisposed();
 
-        if (JoinableTaskFactory is null)
-        {
-            await Task.Run(operation).ConfigureAwait(true);
-        }
-        else
-        {
-            await JoinableTaskFactory.RunAsync(async () =>
-                                               {
-                                                   // Switch to background thread.
-                                                   await TaskScheduler.Default;
+        await JoinableTaskFactory.RunAsync(async () =>
+                                           {
+                                               // Switch to background thread.
+                                               await TaskScheduler.Default;
 
-                                                   operation();
-                                               },
-                                               creationOptions);
-        }
+                                               operation();
+                                           },
+                                           creationOptions);
     }
 
     /// <summary>
@@ -374,21 +328,14 @@ public static class ThreadHelper
     {
         ThrowIfDisposed();
 
-        if (JoinableTaskFactory is null)
-        {
-            await Task.Run(async () => await operation().ConfigureAwait(true)).ConfigureAwait(true);
-        }
-        else
-        {
-            await JoinableTaskFactory.RunAsync(async () =>
-                                               {
-                                                   // Switch to background thread.
-                                                   await TaskScheduler.Default;
+        await JoinableTaskFactory.RunAsync(async () =>
+                                           {
+                                               // Switch to background thread.
+                                               await TaskScheduler.Default;
 
-                                                   await operation().ConfigureAwait(true);
-                                               },
-                                               creationOptions);
-        }
+                                               await operation().ConfigureAwait(true);
+                                           },
+                                           creationOptions);
     }
 
     /// <summary>
@@ -406,11 +353,6 @@ public static class ThreadHelper
                                                                        JoinableTaskCreationOptions.None)
     {
         ThrowIfDisposed();
-
-        if (JoinableTaskFactory is null)
-        {
-            return await Task.Run(async () => await operation().ConfigureAwait(true)).ConfigureAwait(true);
-        }
 
         return await JoinableTaskFactory.RunAsync(async () =>
                                                   {
@@ -441,11 +383,6 @@ public static class ThreadHelper
     {
         ThrowIfDisposed();
 
-        if (JoinableTaskFactory is null)
-        {
-            return await Task.Run(operation).ConfigureAwait(true);
-        }
-
         return await JoinableTaskFactory.RunAsync(async () =>
                                                   {
                                                       // Switch to background thread.
@@ -470,21 +407,14 @@ public static class ThreadHelper
     {
         ThrowIfDisposed();
 
-        if (JoinableTaskFactory is null)
-        {
-            operation();
-        }
-        else
-        {
-            JoinableTaskFactory.Run(async () =>
-                                    {
-                                        // Switch to UI thread.
-                                        await JoinableTaskFactory.SwitchToMainThreadAsync();
+        JoinableTaskFactory.Run(async () =>
+                                {
+                                    // Switch to UI thread.
+                                    await JoinableTaskFactory.SwitchToMainThreadAsync();
 
-                                        operation();
-                                    },
-                                    creationOptions);
-        }
+                                    operation();
+                                },
+                                creationOptions);
     }
 
     /// <summary>
@@ -501,22 +431,13 @@ public static class ThreadHelper
     {
         ThrowIfDisposed();
 
-        if (JoinableTaskFactory is null)
-        {
-#pragma warning disable VSTHRD002 // Avoid problematic synchronous waits
-            Task.Run(async () => await operation().ConfigureAwait(true)).GetAwaiter().GetResult();
-#pragma warning restore VSTHRD002 // Avoid problematic synchronous waits
-        }
-        else
-        {
-            JoinableTaskFactory.Run(async () =>
-                                    {
-                                        // Switch to UI thread.
-                                        await JoinableTaskFactory.SwitchToMainThreadAsync();
-                                        await operation().ConfigureAwait(true);
-                                    },
-                                    creationOptions);
-        }
+        JoinableTaskFactory.Run(async () =>
+                                {
+                                    // Switch to UI thread.
+                                    await JoinableTaskFactory.SwitchToMainThreadAsync();
+                                    await operation().ConfigureAwait(true);
+                                },
+                                creationOptions);
     }
 
     /// <summary>
@@ -534,13 +455,6 @@ public static class ThreadHelper
                                      JoinableTaskCreationOptions creationOptions = JoinableTaskCreationOptions.None)
     {
         ThrowIfDisposed();
-
-        if (JoinableTaskFactory is null)
-        {
-#pragma warning disable VSTHRD002 // Avoid problematic synchronous waits
-            return Task.Run(async () => await operation().ConfigureAwait(true)).GetAwaiter().GetResult();
-#pragma warning restore VSTHRD002 // Avoid problematic synchronous waits
-        }
 
         return JoinableTaskFactory.Run(async () =>
                                        {
@@ -567,11 +481,6 @@ public static class ThreadHelper
                                      JoinableTaskCreationOptions creationOptions = JoinableTaskCreationOptions.None)
     {
         ThrowIfDisposed();
-
-        if (JoinableTaskFactory is null)
-        {
-            return operation();
-        }
 
         return JoinableTaskFactory.Run(async () =>
                                        {
@@ -668,21 +577,14 @@ public static class ThreadHelper
     {
         ThrowIfDisposed();
 
-        if (JoinableTaskFactory is null)
-        {
-            operation();
-        }
-        else
-        {
-            await JoinableTaskFactory.RunAsync(async () =>
-                                               {
-                                                   // Switch to UI thread.
-                                                   await JoinableTaskFactory.SwitchToMainThreadAsync();
+        await JoinableTaskFactory.RunAsync(async () =>
+                                           {
+                                               // Switch to UI thread.
+                                               await JoinableTaskFactory.SwitchToMainThreadAsync();
 
-                                                   operation();
-                                               },
-                                               creationOptions);
-        }
+                                               operation();
+                                           },
+                                           creationOptions);
     }
 
     /// <summary>
@@ -700,20 +602,13 @@ public static class ThreadHelper
     {
         ThrowIfDisposed();
 
-        if (JoinableTaskFactory is null)
-        {
-            await operation().ConfigureAwait(true);
-        }
-        else
-        {
-            await JoinableTaskFactory.RunAsync(async () =>
-                                               {
-                                                   // Switch to UI thread.
-                                                   await JoinableTaskFactory.SwitchToMainThreadAsync();
-                                                   await operation().ConfigureAwait(true);
-                                               },
-                                               creationOptions);
-        }
+        await JoinableTaskFactory.RunAsync(async () =>
+                                           {
+                                               // Switch to UI thread.
+                                               await JoinableTaskFactory.SwitchToMainThreadAsync();
+                                               await operation().ConfigureAwait(true);
+                                           },
+                                           creationOptions);
     }
 
     /// <summary>
@@ -734,11 +629,6 @@ public static class ThreadHelper
                                                                JoinableTaskCreationOptions.None)
     {
         ThrowIfDisposed();
-
-        if (JoinableTaskFactory is null)
-        {
-            return await operation().ConfigureAwait(true);
-        }
 
         return await JoinableTaskFactory.RunAsync(async () =>
                                                   {
@@ -769,11 +659,6 @@ public static class ThreadHelper
     {
         ThrowIfDisposed();
 
-        if (JoinableTaskFactory is null)
-        {
-            return operation();
-        }
-
         return await JoinableTaskFactory.RunAsync(async () =>
                                                   {
                                                       // Switch to UI thread.
@@ -790,7 +675,7 @@ public static class ThreadHelper
     /// <param name="message">The exception message.</param>
     public static void ThrowIfNotOnUIThread(string message)
     {
-        if (!JoinableTaskContext?.IsOnMainThread ?? false)
+        if (!JoinableTaskContext.IsOnMainThread)
         {
             ThrowHelper.ThrowInvalidOperationException(message);
         }
@@ -802,7 +687,7 @@ public static class ThreadHelper
     /// <param name="message">The exception message.</param>
     public static void ThrowIfOnUIThread(string message)
     {
-        if (JoinableTaskContext?.IsOnMainThread ?? false)
+        if (JoinableTaskContext.IsOnMainThread)
         {
             ThrowHelper.ThrowInvalidOperationException(message);
         }
