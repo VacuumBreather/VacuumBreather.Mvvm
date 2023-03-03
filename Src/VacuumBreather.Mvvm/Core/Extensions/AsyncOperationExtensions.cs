@@ -52,7 +52,7 @@ public static class AsyncOperationExtensions
 
         deactivate.Deactivating += async (_, args, _) =>
         {
-            if (args.WasClosed && weakReference.Target is IAsyncOperation operation)
+            if (args.WillClose && weakReference.Target is IAsyncOperation operation)
             {
                 operation.Cancel();
 

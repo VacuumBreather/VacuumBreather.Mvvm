@@ -33,13 +33,13 @@ public abstract class Screen : ViewAware, IScreen, IChild
     public event AsyncEventHandler<ActivationEventArgs>? Activated;
 
     /// <inheritdoc />
-    public event AsyncEventHandler<ActivationEventArgs>? Activating;
+    public event AsyncEventHandler<ActivatingEventArgs>? Activating;
 
     /// <inheritdoc />
     public event AsyncEventHandler<DeactivationEventArgs>? Deactivated;
 
     /// <inheritdoc />
-    public event AsyncEventHandler<DeactivationEventArgs>? Deactivating;
+    public event AsyncEventHandler<DeactivatingEventArgs>? Deactivating;
 
     /// <summary>Gets or sets a value indicating whether this instance has been initialized.</summary>
     public bool IsInitialized
@@ -233,9 +233,9 @@ public abstract class Screen : ViewAware, IScreen, IChild
         await task.ConfigureAwait(true);
     }
 
-    private async ValueTask RaiseActivatingAsync(bool wasInitialized, CancellationToken cancellationToken)
+    private async ValueTask RaiseActivatingAsync(bool willInitialize, CancellationToken cancellationToken)
     {
-        ValueTask task = Activating?.InvokeAllAsync(this, new ActivationEventArgs(wasInitialized), cancellationToken) ??
+        ValueTask task = Activating?.InvokeAllAsync(this, new ActivatingEventArgs(willInitialize), cancellationToken) ??
                          ValueTask.CompletedTask;
 
         await task.ConfigureAwait(true);
@@ -249,9 +249,9 @@ public abstract class Screen : ViewAware, IScreen, IChild
         await task.ConfigureAwait(true);
     }
 
-    private async ValueTask RaiseDeactivatingAsync(bool wasClosed, CancellationToken cancellationToken)
+    private async ValueTask RaiseDeactivatingAsync(bool willClose, CancellationToken cancellationToken)
     {
-        ValueTask task = Deactivating?.InvokeAllAsync(this, new DeactivationEventArgs(wasClosed), cancellationToken) ??
+        ValueTask task = Deactivating?.InvokeAllAsync(this, new DeactivatingEventArgs(willClose), cancellationToken) ??
                          ValueTask.CompletedTask;
 
         await task.ConfigureAwait(true);

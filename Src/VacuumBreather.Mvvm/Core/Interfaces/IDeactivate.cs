@@ -21,7 +21,7 @@ public interface IDeactivate
                      "CA1003:Use generic event handler instances",
                      Justification =
                          "This is a special async type of event handler delegate and appropriate in this case.")]
-    event AsyncEventHandler<DeactivationEventArgs>? Deactivating;
+    event AsyncEventHandler<DeactivatingEventArgs>? Deactivating;
 
     /// <summary>Deactivates this instance.</summary>
     /// <param name="close">Indicates whether or not this instance is being closed.</param>
