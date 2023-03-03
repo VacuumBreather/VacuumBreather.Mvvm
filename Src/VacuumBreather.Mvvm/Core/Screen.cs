@@ -3,22 +3,20 @@ using System.Threading;
 using System.Threading.Tasks;
 using JetBrains.Annotations;
 using Microsoft.Extensions.Logging;
+using VacuumBreather.Mvvm.Core.Extensions;
 
 namespace VacuumBreather.Mvvm.Core;
 
 /// <summary>A base implementation of <see cref="IScreen" />.</summary>
-[PublicAPI]
-[SuppressMessage("Design",
+[PublicAPI,
+ SuppressMessage("Design",
                  "CA1001:Types that own disposable fields should be disposable",
                  Justification = "The fields in question are only ever instantiated in using blocks")]
 public abstract class Screen : ViewAware, IScreen, IChild
 {
-    private TaskCompletionSource? _initializationCompletion;
-    private TaskCompletionSource? _activateCompletion;
-    private TaskCompletionSource? _deactivateCompletion;
-
-    private SafeCancellationTokenSource? _activateCancellation;
-    private SafeCancellationTokenSource? _deactivateCancellation;
+    private IAsyncOperation? _initializationOperation;
+    private IAsyncOperation? _activateOperation;
+    private IAsyncOperation? _deactivateOperation;
 
     private string _displayName;
     private bool _isActive;
@@ -33,6 +31,9 @@ public abstract class Screen : ViewAware, IScreen, IChild
 
     /// <inheritdoc />
     public event AsyncEventHandler<ActivationEventArgs>? Activated;
+
+    /// <inheritdoc />
+    public event AsyncEventHandler<ActivationEventArgs>? Activating;
 
     /// <inheritdoc />
     public event AsyncEventHandler<DeactivationEventArgs>? Deactivated;
@@ -92,117 +93,109 @@ public abstract class Screen : ViewAware, IScreen, IChild
             return;
         }
 
-        // Guard against multiple simultaneous executions and provide cancellation source.
-        await (_activateCompletion?.Task ?? Task.CompletedTask).ConfigureAwait(true);
-        using var guard = TaskCompletion.CreateGuard(out _activateCompletion);
+        // Guard against multiple simultaneous executions.
+        await TaskCompletion.AwaitCompletionAsync(_activateOperation).ConfigureAwait(true);
 
-        using (_activateCancellation = SafeCancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
+        using IAsyncOperation operation = TaskCompletion.CreateAsyncOperation(cancellationToken)
+                                                        .CancelWhenDeactivating(this)
+                                                        .Assign(out _activateOperation);
+
+        await RaiseActivatingAsync(!IsInitialized, operation.Token).ConfigureAwait(true);
+
+        var initialized = false;
+
+        if (!IsInitialized)
         {
-            // Cancel deactivation and wait for potential synchronous steps to complete.
-            _deactivateCancellation?.Cancel();
+            // Deactivation is not allowed to cancel initialization.
+            using IAsyncOperation initOperation = TaskCompletion.CreateAsyncOperation(cancellationToken)
+                                                                .Assign(out _initializationOperation);
 
-            await (_deactivateCompletion?.Task ?? Task.CompletedTask).ConfigureAwait(true);
+            Logger.LogDebug("Initializing {Screen}...", GetType().Name);
 
-            bool initialized = false;
-
-            if (!IsInitialized)
+            if (initOperation.IsCancellationRequested)
             {
-                using var initGuard = TaskCompletion.CreateGuard(out _initializationCompletion);
-
-                Logger.LogDebug("Initializing {Screen}...", GetType().Name);
-
-                // Deactivation is not allowed to cancel initialization, so we are only
-                // using the token that was passed to us.
-                if (cancellationToken.IsCancellationRequested)
-                {
-                    Logger.LogDebug("Initialization of {Screen} canceled", GetType().Name);
-
-                    return;
-                }
-
-                await OnInitializeAsync(cancellationToken).ConfigureAwait(true);
-
-                IsInitialized = initialized = true;
-            }
-
-            Logger.LogTrace("Activating {Screen}...", GetType().Name);
-
-            if (_activateCancellation.IsCancellationRequested)
-            {
-                Logger.LogTrace("Activation of {Screen} canceled", GetType().Name);
+                Logger.LogDebug("Initialization of {Screen} canceled", GetType().Name);
 
                 return;
             }
 
-            await OnActivateAsync(_activateCancellation.Token).ConfigureAwait(true);
+            await OnInitializeAsync(initOperation.Token).ConfigureAwait(true);
 
-            IsActive = true;
+            IsInitialized = initialized = true;
+        }
 
-            await RaiseActivatedAsync(initialized, _activateCancellation.Token).ConfigureAwait(true);
+        Logger.LogTrace("Activating {Screen}...", GetType().Name);
 
-            Logger.LogTrace("Activated {Screen}", GetType().Name);
+        if (operation.IsCancellationRequested)
+        {
+            Logger.LogTrace("Activation of {Screen} canceled", GetType().Name);
 
-            if (initialized)
-            {
-                Logger.LogDebug("Initialized {Screen}", GetType().Name);
-            }
+            return;
+        }
+
+        await OnActivateAsync(operation.Token).ConfigureAwait(true);
+
+        IsActive = true;
+
+        await RaiseActivatedAsync(initialized, operation.Token).ConfigureAwait(true);
+
+        Logger.LogTrace("Activated {Screen}", GetType().Name);
+
+        if (initialized)
+        {
+            Logger.LogDebug("Initialized {Screen}", GetType().Name);
         }
     }
 
     /// <inheritdoc />
     public async ValueTask DeactivateAsync(bool close, CancellationToken cancellationToken)
     {
-        // Guard against multiple simultaneous executions and provide cancellation source.
-        await (_deactivateCompletion?.Task ?? Task.CompletedTask).ConfigureAwait(true);
-        using var guard = TaskCompletion.CreateGuard(out _deactivateCompletion);
+        // Guard against multiple simultaneous executions.
+        await TaskCompletion.AwaitCompletionAsync(_deactivateOperation).ConfigureAwait(true);
 
-        using (_deactivateCancellation = SafeCancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
+        using IAsyncOperation operation = TaskCompletion.CreateAsyncOperation(cancellationToken)
+                                                        .CancelWhenActivating(this)
+                                                        .Assign(out _deactivateOperation);
+
+        if (!IsInitialized)
         {
-            if (!IsInitialized)
+            // We do not allow deactivation before initialization.
+            await TaskCompletion.AwaitCompletionAsync(_initializationOperation).ConfigureAwait(true);
+        }
+
+        if (operation.IsCancellationRequested)
+        {
+            Logger.LogTrace("Deactivation of {Screen} canceled", GetType().Name);
+
+            return;
+        }
+
+        if (IsActive || (IsInitialized && close))
+        {
+            if (close)
             {
-                // We do not allow deactivation before initialization.
-                await (_initializationCompletion?.Task ?? Task.CompletedTask).ConfigureAwait(true);
+                Logger.LogDebug("Closing {Screen}...", GetType().Name);
+            }
+            else
+            {
+                Logger.LogTrace("Deactivating {Screen}...", GetType().Name);
             }
 
-            if (_deactivateCancellation.IsCancellationRequested)
-            {
-                Logger.LogTrace("Deactivation of {Screen} canceled", GetType().Name);
+            await RaiseDeactivatingAsync(close, operation.Token).ConfigureAwait(true);
+            await OnDeactivateAsync(close, operation.Token).ConfigureAwait(true);
 
-                return;
+            IsActive = false;
+
+            await RaiseDeactivatedAsync(close, operation.Token).ConfigureAwait(true);
+
+            if (close)
+            {
+                Logger.LogDebug("Closed {Screen}", GetType().Name);
+                IsInitialized = false;
             }
-
-            // Cancel activation and wait for potential synchronous steps to complete.
-            _activateCancellation?.Cancel();
-
-            await (_activateCompletion?.Task ?? Task.CompletedTask).ConfigureAwait(true);
-
-            if (IsActive || (IsInitialized && close))
+            else
             {
-                if (close)
-                {
-                    Logger.LogDebug("Closing {Screen}...", GetType().Name);
-                }
-                else
-                {
-                    Logger.LogTrace("Deactivating {Screen}...", GetType().Name);
-                }
-
-                await RaiseDeactivatingAsync(close, cancellationToken).ConfigureAwait(true);
-                await OnDeactivateAsync(close, cancellationToken).ConfigureAwait(true);
-
-                IsActive = false;
-
-                await RaiseDeactivatedAsync(close, cancellationToken).ConfigureAwait(true);
-
-                if (close)
-                {
-                    Logger.LogDebug("Closed {Screen}", GetType().Name);
-                    IsInitialized = false;
-                }
-                else
-                {
-                    Logger.LogTrace("Deactivated {Screen}", GetType().Name);
-                }
+                Logger.LogTrace("Deactivated {Screen}", GetType().Name);
             }
         }
     }
@@ -235,6 +228,14 @@ public abstract class Screen : ViewAware, IScreen, IChild
     private async ValueTask RaiseActivatedAsync(bool wasInitialized, CancellationToken cancellationToken)
     {
         ValueTask task = Activated?.InvokeAllAsync(this, new ActivationEventArgs(wasInitialized), cancellationToken) ??
+                         ValueTask.CompletedTask;
+
+        await task.ConfigureAwait(true);
+    }
+
+    private async ValueTask RaiseActivatingAsync(bool wasInitialized, CancellationToken cancellationToken)
+    {
+        ValueTask task = Activating?.InvokeAllAsync(this, new ActivationEventArgs(wasInitialized), cancellationToken) ??
                          ValueTask.CompletedTask;
 
         await task.ConfigureAwait(true);
