@@ -103,9 +103,8 @@ public static class View
         d.SetValue(ModelProperty, value);
     }
 
-    private static string GetAncestorTypeName(DependencyObject? contextLocation)
+    private static string GetAncestorTypeName(DependencyObject? ancestor)
     {
-        var ancestor = contextLocation.FindAncestorDeclaredInUserControlOrWindowOrAdorner();
         var ancestorTypeName = ancestor?.GetType().Name;
 
         ancestorTypeName += ancestor is FrameworkElement element && !string.IsNullOrEmpty(element.Name)
@@ -226,26 +225,34 @@ public static class View
             return;
         }
 
-        DependencyObject? contextLocation = targetLocation.FindFirstNonGeneratedAncestor();
-
-        Guid context = GetContext(contextLocation);
-
         _logger ??= GetServiceProvider(targetLocation).GetService<ILoggerFactory>()?.CreateLogger(typeof(View)) ??
                     NullLogger.Instance;
 
-        _isLoggingDebug ??= _logger.IsEnabled(LogLevel.Debug);
+        var declaredAncestor = targetLocation.FindAncestorDeclaredInUserControlOrWindowOrAdorner() as FrameworkElement;
+
+        if (declaredAncestor?.DataContext == viewModel)
+        {
+            _logger.LogDebug(
+                $"Inherited {nameof(FrameworkElement.DataContext)} detected at {{Location}}: {{ViewModel}}. Setting view to null.",
+                GetAncestorTypeName(declaredAncestor),
+                viewModel.GetType().Name);
+
+            SetContentPropertyValue(targetLocation, null, overrideContentProperty);
+
+            return;
+        }
+
+        var contextLocation = targetLocation.FindFirstNonGeneratedAncestor();
+
+        Guid context = GetContext(contextLocation);
 
         if (GetCachedViewFor(viewModel, contextLocation) is { } cachedView)
         {
-            if (_isLoggingDebug.Value)
-            {
-                // Only do this call if the log level is active because GetAncestorTypeName() is expensive.
-                _logger.LogTrace(
-                    "Using cached view for {ViewModel} at location {LocationInView} with context ID {ContextID}",
-                    viewModel.GetType().Name,
-                    GetAncestorTypeName(contextLocation),
-                    context);
-            }
+            _logger.LogTrace(
+                "Using cached view for {ViewModel} at location {LocationInView} with context ID {ContextID}",
+                viewModel.GetType().Name,
+                GetAncestorTypeName(declaredAncestor),
+                context);
 
             SetContentPropertyValue(targetLocation, cachedView, overrideContentProperty);
 
@@ -275,16 +282,11 @@ public static class View
                 context = Guid.NewGuid();
             }
 
-            if (_isLoggingDebug.Value)
-            {
-                // Only do this call if the log level is active because GetAncestorTypeName() is expensive.
-                _logger.LogDebug(
-                    "Attaching {View} to {ViewModel} at location {LocationInView} with context ID {ContextID}",
-                    view.GetType().Name,
-                    viewAware.GetType().Name,
-                    GetAncestorTypeName(contextLocation),
-                    context);
-            }
+            _logger.LogDebug("Attaching {View} to {ViewModel} at location {LocationInView} with context ID {ContextID}",
+                             view.GetType().Name,
+                             viewAware.GetType().Name,
+                             GetAncestorTypeName(declaredAncestor),
+                             context);
 
             SetContext(contextLocation, context);
 

@@ -1,9 +1,11 @@
 ﻿using System;
 using CommunityToolkit.Diagnostics;
+using JetBrains.Annotations;
 
 namespace VacuumBreather.Mvvm.Core;
 
 /// <summary>Executes an action when disposed.</summary>
+[PublicAPI]
 public sealed class DisposableAction : IDisposable
 {
     private readonly Action _action;

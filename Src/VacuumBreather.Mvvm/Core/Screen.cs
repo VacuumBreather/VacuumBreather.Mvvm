@@ -3,16 +3,15 @@ using System.Threading;
 using System.Threading.Tasks;
 using JetBrains.Annotations;
 using Microsoft.Extensions.Logging;
-using VacuumBreather.Mvvm.Core.Extensions;
 
 namespace VacuumBreather.Mvvm.Core;
 
 /// <summary>A base implementation of <see cref="IScreen" />.</summary>
-[PublicAPI,
- SuppressMessage("Design",
+[PublicAPI]
+[SuppressMessage("Design",
                  "CA1001:Types that own disposable fields should be disposable",
                  Justification = "The fields in question are only ever instantiated in using blocks")]
-public abstract class Screen : ViewAware, IScreen, IChild
+public abstract class Screen : ViewAware, IScreen, IChild, IHaveAsynchronousOperations
 {
     private IAsyncOperation? _initializationOperation;
     private IAsyncOperation? _activateOperation;
@@ -27,6 +26,7 @@ public abstract class Screen : ViewAware, IScreen, IChild
     protected Screen()
     {
         _displayName = GetType().Name;
+        AsyncGuard.IsOngoingChanged += (_, _) => OnPropertyChanged(nameof(IsBusy));
     }
 
     /// <inheritdoc />
@@ -56,6 +56,9 @@ public abstract class Screen : ViewAware, IScreen, IChild
     }
 
     /// <inheritdoc />
+    public bool IsBusy => AsyncGuard.IsOngoing;
+
+    /// <inheritdoc />
     public string DisplayName
     {
         get => _displayName;
@@ -68,6 +71,13 @@ public abstract class Screen : ViewAware, IScreen, IChild
         get => _isActive;
         private set => SetProperty(ref _isActive, value);
     }
+
+    /// <summary>
+    ///     Gets the <see cref="AsyncGuard" /> which is keeping track of ongoing asynchronous operations on this
+    ///     <see cref="BindableObject" />. Use tokens from this guard in a using block to mark the scope of an asynchronous
+    ///     operation that should set the IsBusy state, while ongoing.
+    /// </summary>
+    protected AsyncGuard AsyncGuard { get; } = new();
 
     /// <inheritdoc />
     public virtual ValueTask<bool> CanCloseAsync(CancellationToken cancellationToken = default)
@@ -94,11 +104,11 @@ public abstract class Screen : ViewAware, IScreen, IChild
         }
 
         // Guard against multiple simultaneous executions.
-        await TaskCompletion.AwaitCompletionAsync(_activateOperation).ConfigureAwait(true);
+        await AsyncHelper.AwaitCompletionAsync(_activateOperation, cancellationToken).ConfigureAwait(true);
 
-        using IAsyncOperation operation = TaskCompletion.CreateAsyncOperation(cancellationToken)
-                                                        .CancelWhenDeactivating(this)
-                                                        .Assign(out _activateOperation);
+        using IAsyncOperation operation = AsyncHelper.CreateAsyncOperation(cancellationToken)
+                                                     .CancelWhenDeactivating(this)
+                                                     .Assign(out _activateOperation);
 
         await RaiseActivatingAsync(!IsInitialized, operation.Token).ConfigureAwait(true);
 
@@ -107,8 +117,8 @@ public abstract class Screen : ViewAware, IScreen, IChild
         if (!IsInitialized)
         {
             // Deactivation is not allowed to cancel initialization.
-            using IAsyncOperation initOperation = TaskCompletion.CreateAsyncOperation(cancellationToken)
-                                                                .Assign(out _initializationOperation);
+            using IAsyncOperation initOperation = AsyncHelper.CreateAsyncOperation(cancellationToken)
+                                                             .Assign(out _initializationOperation);
 
             Logger.LogDebug("Initializing {Screen}...", GetType().Name);
 
@@ -151,16 +161,16 @@ public abstract class Screen : ViewAware, IScreen, IChild
     public async ValueTask DeactivateAsync(bool close, CancellationToken cancellationToken)
     {
         // Guard against multiple simultaneous executions.
-        await TaskCompletion.AwaitCompletionAsync(_deactivateOperation).ConfigureAwait(true);
+        await AsyncHelper.AwaitCompletionAsync(_deactivateOperation, cancellationToken).ConfigureAwait(true);
 
-        using IAsyncOperation operation = TaskCompletion.CreateAsyncOperation(cancellationToken)
-                                                        .CancelWhenActivating(this)
-                                                        .Assign(out _deactivateOperation);
+        using IAsyncOperation operation = AsyncHelper.CreateAsyncOperation(cancellationToken)
+                                                     .CancelWhenActivating(this)
+                                                     .Assign(out _deactivateOperation);
 
         if (!IsInitialized)
         {
             // We do not allow deactivation before initialization.
-            await TaskCompletion.AwaitCompletionAsync(_initializationOperation).ConfigureAwait(true);
+            await AsyncHelper.AwaitCompletionAsync(_initializationOperation, cancellationToken).ConfigureAwait(true);
         }
 
         if (operation.IsCancellationRequested)

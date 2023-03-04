@@ -48,7 +48,7 @@ internal static class DataTemplateManager
                               $"  xmlns:vm=\"clr-namespace:{typeof(BindableObject).Namespace};assembly={typeof(BindableObject).Assembly.GetName().Name}\"\n" +
                               $"  xmlns:mvvm=\"clr-namespace:{typeof(View).Namespace};assembly={typeof(View).Assembly.GetName().Name}\"\n" +
                               $"  DataType=\"{{x:Type vm:{nameof(BindableObject)}}}\">\n" +
-                              "    <ContentPresenter mvvm:View.IsGenerated=\"True\" mvvm:View.Model=\"{Binding Mode=OneTime}\" />\n" +
+                              "    <ContentPresenter mvvm:View.IsGenerated=\"True\" mvvm:View.Model=\"{Binding Mode=OneWay}\" />\n" +
                               "</DataTemplate>";
 
         return (DataTemplate)XamlReader.Parse(xamlTemplate);

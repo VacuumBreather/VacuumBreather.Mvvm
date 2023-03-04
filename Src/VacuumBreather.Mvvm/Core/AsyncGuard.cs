@@ -1,8 +1,7 @@
 ﻿using System;
 using System.Threading;
-using VacuumBreather.Mvvm.Core;
 
-namespace VacuumBreather.Mvvm.Wpf;
+namespace VacuumBreather.Mvvm.Core;
 
 /// <summary>Helper class to keep track of ongoing asynchronous operations.</summary>
 /// <example>

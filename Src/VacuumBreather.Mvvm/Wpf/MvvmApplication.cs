@@ -13,7 +13,6 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using VacuumBreather.Mvvm.Core;
-using VacuumBreather.Mvvm.Core.Extensions;
 
 namespace VacuumBreather.Mvvm.Wpf;
 
@@ -26,7 +25,8 @@ namespace VacuumBreather.Mvvm.Wpf;
 /// </remarks>
 [SuppressMessage("Design",
                  "CA1001:Types that own disposable fields should be disposable",
-                 Justification = "The fields in question are only ever instantiated in using blocks"), PublicAPI]
+                 Justification = "The fields in question are only ever instantiated in using blocks")]
+[PublicAPI]
 public abstract class MvvmApplication : Application
 {
     private readonly IHost _host;
@@ -48,7 +48,7 @@ public abstract class MvvmApplication : Application
     /// </summary>
     protected MvvmApplication()
     {
-        _host = Host.CreateDefaultBuilder()
+        _host = Host.CreateDefaultBuilder(Environment.GetCommandLineArgs())
                     .ConfigureHostBuilder(ConfigureHostBuilder)
                     .ConfigureServices(RegisterRequiredServices)
                     .Build();
@@ -112,10 +112,10 @@ public abstract class MvvmApplication : Application
 
             Logger.LogInformation("Shutting down...");
 
-            using IAsyncOperation operation = TaskCompletion.CreateAsyncOperation().Assign(out _shutdownOperation);
+            using IAsyncOperation operation = AsyncHelper.CreateAsyncOperation().Assign(out _shutdownOperation);
 
-            await TaskCompletion.AwaitCompletionAsync(_startOperation).ConfigureAwait(true);
-            await TaskCompletion.AwaitCompletionAsync(_disableOperation).ConfigureAwait(true);
+            await AsyncHelper.AwaitCompletionAsync(_startOperation).ConfigureAwait(true);
+            await AsyncHelper.AwaitCompletionAsync(_disableOperation).ConfigureAwait(true);
 
             _enableOperation?.Cancel();
 
@@ -286,54 +286,6 @@ public abstract class MvvmApplication : Application
     /// <returns>The main application <see cref="Window" />.</returns>
     protected abstract Window ResolveMainWindow(IServiceProvider services);
 
-    private async ValueTask OnShellViewModelDeactivatedAsync(object sender,
-                                                             DeactivationEventArgs e,
-                                                             CancellationToken cancellationToken)
-    {
-        if (e.WasClosed)
-        {
-            await ShutdownAsync().ConfigureAwait(true);
-        }
-    }
-
-    private void OnWindowClosing(object? _, CancelEventArgs args)
-    {
-        if (_closingAttempts > 0)
-        {
-            args.Cancel = true;
-        }
-
-        if (args.Cancel)
-        {
-            return;
-        }
-
-        args.Cancel = true;
-
-        Interlocked.Increment(ref _closingAttempts);
-
-        async ValueTask ClosingTask()
-        {
-            var canClose = true;
-
-            if (ShellViewModel is IGuardClose guardClose)
-            {
-                canClose = await guardClose.CanCloseAsync().ConfigureAwait(true);
-            }
-
-            if (canClose)
-            {
-                await ShutdownAsync().ConfigureAwait(true);
-            }
-            else
-            {
-                Interlocked.Decrement(ref _closingAttempts);
-            }
-        }
-
-        ClosingTask().Forget();
-    }
-
     private static void RegisterRequiredServices(HostBuilderContext context, IServiceCollection services)
     {
         services.AddSingleton<ViewLocator>();
@@ -396,16 +348,16 @@ public abstract class MvvmApplication : Application
     private async ValueTask OnDisableAsync()
     {
         // Wait for startup completion.
-        await TaskCompletion.AwaitCompletionAsync(_startOperation).ConfigureAwait(true);
+        await AsyncHelper.AwaitCompletionAsync(_startOperation).ConfigureAwait(true);
 
         // Guard against multiple simultaneous executions.
-        await TaskCompletion.AwaitCompletionAsync(_disableOperation).ConfigureAwait(true);
+        await AsyncHelper.AwaitCompletionAsync(_disableOperation).ConfigureAwait(true);
 
-        using IAsyncOperation operation = TaskCompletion.CreateAsyncOperation().Assign(out _disableOperation);
+        using IAsyncOperation operation = AsyncHelper.CreateAsyncOperation().Assign(out _disableOperation);
 
         // Cancel activation and wait for potential synchronous steps to complete.
         _enableOperation?.Cancel();
-        await TaskCompletion.AwaitCompletionAsync(_enableOperation).ConfigureAwait(true);
+        await AsyncHelper.AwaitCompletionAsync(_enableOperation).ConfigureAwait(true);
 
         if (ShellViewModel is IDeactivate deactivate && !_disableOperation.IsCancellationRequested)
         {
@@ -416,21 +368,69 @@ public abstract class MvvmApplication : Application
     private async ValueTask OnEnableAsync()
     {
         // Wait for startup completion.
-        await TaskCompletion.AwaitCompletionAsync(_startOperation).ConfigureAwait(true);
+        await AsyncHelper.AwaitCompletionAsync(_startOperation).ConfigureAwait(true);
 
         // Guard against multiple simultaneous executions.
-        await TaskCompletion.AwaitCompletionAsync(_enableOperation).ConfigureAwait(true);
+        await AsyncHelper.AwaitCompletionAsync(_enableOperation).ConfigureAwait(true);
 
-        using IAsyncOperation operation = TaskCompletion.CreateAsyncOperation().Assign(out _enableOperation);
+        using IAsyncOperation operation = AsyncHelper.CreateAsyncOperation().Assign(out _enableOperation);
 
         // Cancel deactivation and wait for potential synchronous steps to complete.
         _disableOperation?.Cancel();
-        await TaskCompletion.AwaitCompletionAsync(_disableOperation).ConfigureAwait(true);
+        await AsyncHelper.AwaitCompletionAsync(_disableOperation).ConfigureAwait(true);
 
         if (ShellViewModel is IActivate activate && !_enableOperation.IsCancellationRequested)
         {
             await activate.ActivateAsync(_enableOperation.Token).ConfigureAwait(true);
         }
+    }
+
+    private async ValueTask OnShellViewModelDeactivatedAsync(object sender,
+                                                             DeactivationEventArgs e,
+                                                             CancellationToken cancellationToken)
+    {
+        if (e.WasClosed)
+        {
+            await ShutdownAsync().ConfigureAwait(true);
+        }
+    }
+
+    private void OnWindowClosing(object? _, CancelEventArgs args)
+    {
+        if (_closingAttempts > 0)
+        {
+            args.Cancel = true;
+        }
+
+        if (args.Cancel)
+        {
+            return;
+        }
+
+        args.Cancel = true;
+
+        Interlocked.Increment(ref _closingAttempts);
+
+        async ValueTask ClosingTask()
+        {
+            var canClose = true;
+
+            if (ShellViewModel is IGuardClose guardClose)
+            {
+                canClose = await guardClose.CanCloseAsync().ConfigureAwait(true);
+            }
+
+            if (canClose)
+            {
+                await ShutdownAsync().ConfigureAwait(true);
+            }
+            else
+            {
+                Interlocked.Decrement(ref _closingAttempts);
+            }
+        }
+
+        ClosingTask().Forget();
     }
 
     private void SetupExceptionHandling()
@@ -466,7 +466,7 @@ public abstract class MvvmApplication : Application
             return;
         }
 
-        using IAsyncOperation operation = TaskCompletion.CreateAsyncOperation().Assign(out _startOperation);
+        using IAsyncOperation operation = AsyncHelper.CreateAsyncOperation().Assign(out _startOperation);
 
         Initialize();
 

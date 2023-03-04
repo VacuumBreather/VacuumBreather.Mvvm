@@ -1,10 +1,12 @@
 ﻿using System;
 using System.ComponentModel;
 using System.Windows;
+using JetBrains.Annotations;
 
 namespace VacuumBreather.Mvvm.Wpf;
 
 /// <summary>A helper class providing filters to check if a type is a view or a view-model.</summary>
+[PublicAPI]
 public static class TypeFilters
 {
     /// <summary>
@@ -16,7 +18,8 @@ public static class TypeFilters
     public static Predicate<Type> IsViewModelType { get; set; } = type =>
         IsValidType(type) &&
         type.IsDerivedFromOrImplements(typeof(INotifyPropertyChanged)) &&
-        !type.IsDerivedFromOrImplements(typeof(IDialogService));
+        !type.IsDerivedFromOrImplements(typeof(IDialogService)) &&
+        type.Name.EndsWith("ViewModel", StringComparison.InvariantCulture);
 
     /// <summary>
     ///     Gets or sets a filter which checks if a type is a valid view type.
@@ -27,7 +30,8 @@ public static class TypeFilters
     public static Predicate<Type> IsViewType { get; set; } = type =>
         IsValidType(type) &&
         type.IsDerivedFromOrImplements(typeof(FrameworkElement)) &&
-        !type.IsDerivedFromOrImplements(typeof(Window));
+        !type.IsDerivedFromOrImplements(typeof(Window)) &&
+        type.Name.EndsWith("View", StringComparison.InvariantCulture);
 
     /// <summary>
     ///     Determines whether a type is a valid type for a view or view-model check. A type is invalid if it is generic,
@@ -41,6 +45,7 @@ public static class TypeFilters
     public static bool IsValidType(Type type) =>
         type is
         {
+            IsPublic: true,
             IsGenericType: false,
             IsInterface: false,
             IsAbstract: false,

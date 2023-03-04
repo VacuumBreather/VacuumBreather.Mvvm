@@ -38,6 +38,11 @@ public sealed class SafeCancellationTokenSource : IDisposable, ICanBeCanceled
     {
         _cts = cts;
         Token = _cts.Token;
+
+        if (_cts.IsCancellationRequested)
+        {
+            Interlocked.Exchange(ref _state, State.Cancelled);
+        }
     }
 
     /// <inheritdoc />

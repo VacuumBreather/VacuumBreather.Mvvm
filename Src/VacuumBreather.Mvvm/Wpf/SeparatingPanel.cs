@@ -197,6 +197,14 @@ public class SeparatingPanel : Panel
                               });
     }
 
+    /// <inheritdoc />
+    protected override void OnVisualChildrenChanged(DependencyObject visualAdded, DependencyObject visualRemoved)
+    {
+        InvalidateMeasure();
+        InvalidateArrange();
+        InvalidateVisual();
+    }
+
     private IList<ChildWrapper> WrapMeasuredChildren()
     {
         if (InternalChildren.Count == 0)

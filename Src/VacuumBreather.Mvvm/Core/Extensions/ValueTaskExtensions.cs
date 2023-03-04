@@ -1,7 +1,7 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Threading.Tasks;
 
-namespace VacuumBreather.Mvvm.Wpf;
+namespace VacuumBreather.Mvvm.Core;
 
 /// <summary>Provides extension methods for the <see cref="ValueTask" /> type.</summary>
 public static class ValueTaskExtensions

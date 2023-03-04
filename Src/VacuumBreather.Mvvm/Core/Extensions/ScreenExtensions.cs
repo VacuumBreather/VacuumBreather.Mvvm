@@ -6,8 +6,7 @@ using CommunityToolkit.Diagnostics;
 namespace VacuumBreather.Mvvm.Core;
 
 /// <summary>
-///     Provides extension methods for the <see cref="IScreen" /> and <see cref="IConductor" />
-///     types.
+///     Provides extension methods for the <see cref="IScreen" /> and <see cref="IConductor" /> types.
 /// </summary>
 public static class ScreenExtensions
 {
