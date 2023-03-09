@@ -10,39 +10,38 @@ using JetBrains.Annotations;
 namespace VacuumBreather.Mvvm.Core;
 
 /// <summary>
-///     A dynamic data collection that provides notifications when items get added, removed, or
-///     when the whole list is refreshed.
+///     A dynamic data collection that provides notifications when items get added, removed, or when the whole list is
+///     refreshed.
 /// </summary>
 /// <typeparam name="T">The type of elements contained in the collection.</typeparam>
 [PublicAPI]
-public class BindableCollection<T> : ObservableCollection<T>, IBindableCollection<T>, IReadOnlyBindableCollection<T>,
+public class BindableCollection<T> : ObservableCollection<T>,
+                                     IBindableCollection<T>,
+                                     IReadOnlyBindableCollection<T>,
                                      IBindableObject
 {
     private int _suspensionCount;
 
-    /// <summary>Initializes a new instance of the <see cref="BindableCollection{T}" /> class.</summary>
+    /// <summary>Initializes a new instance of the <see cref="BindableCollection{T}"/> class.</summary>
     public BindableCollection()
     {
     }
 
     /// <summary>
-    ///     Initializes a new instance of the <see cref="BindableCollection{T}" /> class that contains
-    ///     elements copied from the specified collection.
+    ///     Initializes a new instance of the <see cref="BindableCollection{T}"/> class that contains elements copied from
+    ///     the specified collection.
     /// </summary>
     /// <param name="collection">The collection from which the elements are copied.</param>
-    /// <exception cref="ArgumentNullException">
-    ///     The <paramref name="collection" /> parameter cannot be
-    ///     <see langword="null" />.
-    /// </exception>
+    /// <exception cref="ArgumentNullException">The <paramref name="collection"/> parameter cannot be <see langword="null"/>.</exception>
     public BindableCollection(IEnumerable<T> collection)
         : base(collection)
     {
     }
 
-    /// <inheritdoc />
+    /// <inheritdoc/>
     public bool IsNotifying => _suspensionCount == 0;
 
-    /// <inheritdoc />
+    /// <inheritdoc/>
     public virtual void AddRange(IEnumerable<T> items)
     {
         void LocalAddRange()
@@ -54,7 +53,7 @@ public class BindableCollection<T> : ObservableCollection<T>, IBindableCollectio
 
             using (var _ = SuspendNotifications())
             {
-                int index = Count;
+                var index = Count;
 
                 // ReSharper disable once PossibleMultipleEnumeration
                 foreach (var item in items)
@@ -70,7 +69,7 @@ public class BindableCollection<T> : ObservableCollection<T>, IBindableCollectio
         ThreadHelper.RunOnUIThread(LocalAddRange);
     }
 
-    /// <inheritdoc />
+    /// <inheritdoc/>
     public virtual void RemoveRange(IEnumerable<T> items)
     {
         void LocalRemoveRange()
@@ -85,7 +84,7 @@ public class BindableCollection<T> : ObservableCollection<T>, IBindableCollectio
                 // ReSharper disable once PossibleMultipleEnumeration
                 foreach (var item in items)
                 {
-                    int index = IndexOf(item);
+                    var index = IndexOf(item);
 
                     if (index >= 0)
                     {
@@ -101,8 +100,8 @@ public class BindableCollection<T> : ObservableCollection<T>, IBindableCollectio
     }
 
     /// <summary>
-    ///     Raises a property and collection changed event that notifies that all of the properties on
-    ///     this object have changed.
+    ///     Raises a property and collection changed event that notifies that all of the properties on this object have
+    ///     changed.
     /// </summary>
     public void Refresh()
     {
@@ -127,17 +126,13 @@ public class BindableCollection<T> : ObservableCollection<T>, IBindableCollectio
         ThreadHelper.RunOnUIThread(() => base.ClearItems());
     }
 
-    /// <inheritdoc />
+    /// <inheritdoc/>
     protected sealed override void InsertItem(int index, T item)
     {
         ThreadHelper.RunOnUIThread(() => base.InsertItem(index, item));
     }
 
-    /// <summary>
-    ///     Raises the
-    ///     <see cref="ObservableCollection{T}.CollectionChanged" /> event
-    ///     with the provided arguments.
-    /// </summary>
+    /// <summary>Raises the <see cref="ObservableCollection{T}.CollectionChanged"/> event with the provided arguments.</summary>
     /// <param name="e">Arguments of the event being raised.</param>
     protected override void OnCollectionChanged(NotifyCollectionChangedEventArgs e)
     {
@@ -157,13 +152,13 @@ public class BindableCollection<T> : ObservableCollection<T>, IBindableCollectio
         }
     }
 
-    /// <inheritdoc />
+    /// <inheritdoc/>
     protected sealed override void RemoveItem(int index)
     {
         ThreadHelper.RunOnUIThread(() => base.RemoveItem(index));
     }
 
-    /// <inheritdoc />
+    /// <inheritdoc/>
     protected sealed override void SetItem(int index, T item)
     {
         ThreadHelper.RunOnUIThread(() => base.SetItem(index, item));
@@ -172,7 +167,7 @@ public class BindableCollection<T> : ObservableCollection<T>, IBindableCollectio
     private void OnCollectionRefreshed()
     {
         OnPropertyChanged(new PropertyChangedEventArgs(nameof(Count)));
-        OnPropertyChanged(new PropertyChangedEventArgs("Item[]"));
+        OnPropertyChanged(new PropertyChangedEventArgs(propertyName: "Item[]"));
         OnCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
     }
 

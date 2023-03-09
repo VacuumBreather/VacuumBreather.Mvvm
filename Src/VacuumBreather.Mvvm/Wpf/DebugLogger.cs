@@ -12,22 +12,22 @@ public sealed class DebugLogger : ILogger
     private readonly string _categoryName;
     private readonly LogLevel _minimumLogLevel;
 
-    /// <summary>Initializes a new instance of the <see cref="DebugLogger" /> class.</summary>
+    /// <summary>Initializes a new instance of the <see cref="DebugLogger"/> class.</summary>
     /// <param name="categoryName">The category this logger is used by.</param>
-    /// <param name="minimumLogLevel">The minimum <see cref="LogLevel" /> this logger will handle.</param>
+    /// <param name="minimumLogLevel">The minimum <see cref="LogLevel"/> this logger will handle.</param>
     public DebugLogger(string categoryName, LogLevel minimumLogLevel = LogLevel.Information)
     {
         _minimumLogLevel = minimumLogLevel;
         _categoryName = string.IsNullOrEmpty(categoryName) ? nameof(DebugLogger) : categoryName;
     }
 
-    /// <inheritdoc />
+    /// <inheritdoc/>
     public bool IsEnabled(LogLevel logLevel)
     {
         return Debugger.IsAttached && (logLevel != LogLevel.None) && (logLevel >= _minimumLogLevel);
     }
 
-    /// <inheritdoc />
+    /// <inheritdoc/>
     public void Log<TState>(LogLevel logLevel,
                             EventId eventId,
                             TState state,
@@ -41,7 +41,7 @@ public sealed class DebugLogger : ILogger
 
         Guard.IsNotNull(formatter);
 
-        string message = formatter(state, exception);
+        var message = formatter(state, exception);
 
         if (string.IsNullOrEmpty(message))
         {
@@ -53,7 +53,7 @@ public sealed class DebugLogger : ILogger
         Debug.WriteLine(message);
     }
 
-    /// <inheritdoc />
+    /// <inheritdoc/>
     IDisposable ILogger.BeginScope<TState>(TState state)
     {
         return Disposable.Empty;

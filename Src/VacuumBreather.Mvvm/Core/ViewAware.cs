@@ -3,28 +3,25 @@ using System.Collections.Generic;
 
 namespace VacuumBreather.Mvvm.Core;
 
-/// <summary>
-///     A base implementation of <see cref="IViewAware" /> which is capable of caching views by
-///     context.
-/// </summary>
+/// <summary>A base implementation of <see cref="IViewAware"/> which is capable of caching views by context.</summary>
 public class ViewAware : BindableObject, IViewAware
 {
     private readonly IDictionary<Guid, object> _viewCache = new Dictionary<Guid, object>();
 
-    /// <inheritdoc />
+    /// <inheritdoc/>
     public event EventHandler<ViewAttachedEventArgs>? ViewAttached;
 
-    /// <inheritdoc />
+    /// <inheritdoc/>
     public void AttachView(object view, Guid context)
     {
         _viewCache[context] = view;
         OnViewAttached(view, context);
     }
 
-    /// <inheritdoc />
+    /// <inheritdoc/>
     public object? GetView(Guid context)
     {
-        return _viewCache.TryGetValue(context, out object? view) ? view : null;
+        return _viewCache.TryGetValue(context, out var view) ? view : null;
     }
 
     /// <summary>Called when a view is attached.</summary>

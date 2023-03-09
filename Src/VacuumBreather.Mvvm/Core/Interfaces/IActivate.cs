@@ -10,14 +10,22 @@ namespace VacuumBreather.Mvvm.Core;
 public interface IActivate
 {
     /// <summary>Raised after activation occurs.</summary>
-    [SuppressMessage("Design",
-                     "CA1003:Use generic event handler instances",
+    [SuppressMessage(category: "Design",
+                     checkId: "CA1003:Use generic event handler instances",
                      Justification = "We need an asynchronous event handler.")]
+    [SuppressMessage(category: "Meziantou.Analyzer",
+                     checkId: "MA0046:Use EventHandler<T> to declare events",
+                     Justification =
+                         "This is a special async type of event handler delegate and appropriate in this case.")]
     event AsyncEventHandler<ActivationEventArgs>? Activated;
 
     /// <summary>Raised before activation.</summary>
-    [SuppressMessage("Design",
-                     "CA1003:Use generic event handler instances",
+    [SuppressMessage(category: "Design",
+                     checkId: "CA1003:Use generic event handler instances",
+                     Justification =
+                         "This is a special async type of event handler delegate and appropriate in this case.")]
+    [SuppressMessage(category: "Meziantou.Analyzer",
+                     checkId: "MA0046:Use EventHandler<T> to declare events",
                      Justification =
                          "This is a special async type of event handler delegate and appropriate in this case.")]
     event AsyncEventHandler<ActivatingEventArgs>? Activating;
@@ -27,6 +35,6 @@ public interface IActivate
 
     /// <summary>Activates this instance.</summary>
     /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
-    /// <returns>A <see cref="ValueTask" /> representing the asynchronous operation.</returns>
+    /// <returns>A <see cref="ValueTask"/> representing the asynchronous operation.</returns>
     ValueTask ActivateAsync(CancellationToken cancellationToken = default);
 }

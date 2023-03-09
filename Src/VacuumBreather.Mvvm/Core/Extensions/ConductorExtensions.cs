@@ -5,21 +5,21 @@ using CommunityToolkit.Diagnostics;
 
 namespace VacuumBreather.Mvvm.Core;
 
-/// <summary>Provides extension methods for the <see cref="IConductor" /> type.</summary>
+/// <summary>Provides extension methods for the <see cref="IConductor"/> type.</summary>
 public static class ConductorExtensions
 {
     /// <summary>Closes the specified item.</summary>
     /// <param name="conductor">The conductor.</param>
     /// <param name="item">The item to close.</param>
     /// <param name="cancellationToken">(Optional) The cancellation token to cancel operation.</param>
-    /// <returns>A <see cref="ValueTask" /> representing the asynchronous operation.</returns>
+    /// <returns>A <see cref="ValueTask"/> representing the asynchronous operation.</returns>
     public static ValueTask CloseItemAsync(this IConductor conductor,
                                            object item,
                                            CancellationToken cancellationToken = default)
     {
-        Guard.IsNotNull(item, nameof(item));
+        Guard.IsNotNull(item);
 
-        return conductor.DeactivateItemAsync(item, true, cancellationToken);
+        return conductor.DeactivateItemAsync(item, close: true, cancellationToken);
     }
 
     /// <summary>Closes the specified item.</summary>
@@ -27,15 +27,15 @@ public static class ConductorExtensions
     /// <param name="item">The item to close.</param>
     /// <param name="cancellationToken">(Optional) The cancellation token to cancel the operation.</param>
     /// <typeparam name="T">The type of the conducted item.</typeparam>
-    /// <returns>A <see cref="ValueTask" /> representing the asynchronous operation.</returns>
+    /// <returns>A <see cref="ValueTask"/> representing the asynchronous operation.</returns>
     public static ValueTask CloseItemAsync<T>(this IConductor<T> conductor,
                                               T item,
                                               CancellationToken cancellationToken = default)
         where T : class
     {
-        Guard.IsNotNull(item, nameof(item));
+        Guard.IsNotNull(item);
 
-        return conductor.DeactivateItemAsync(item, true, cancellationToken);
+        return conductor.DeactivateItemAsync(item, close: true, cancellationToken);
     }
 
     /// <summary>Deactivates the specified item.</summary>
@@ -45,7 +45,7 @@ public static class ConductorExtensions
     /// <param name="closeItemAsync">The function to close the item with if necessary.</param>
     /// <param name="cancellationToken">The cancellation token to cancel operation.</param>
     /// <typeparam name="T">The type of the conducted item.</typeparam>
-    /// <returns>A <see cref="ValueTask" /> representing the asynchronous operation.</returns>
+    /// <returns>A <see cref="ValueTask"/> representing the asynchronous operation.</returns>
     public static async ValueTask DeactivateItemAsync<T>(this IConductor<T> conductor,
                                                          T item,
                                                          bool close,
@@ -53,23 +53,22 @@ public static class ConductorExtensions
                                                          CancellationToken cancellationToken = default)
         where T : class
     {
-        Guard.IsNotNull(item, nameof(item));
-        Guard.IsNotNull(closeItemAsync, nameof(closeItemAsync));
+        Guard.IsNotNull(item);
+        Guard.IsNotNull(closeItemAsync);
 
         if (close)
         {
-            ICloseResult<T> closeResult = await conductor.CloseStrategy
-                                                         .ExecuteAsync(new[] { item }, CancellationToken.None)
-                                                         .ConfigureAwait(true);
+            ICloseResult<T> closeResult =
+                await conductor.CloseStrategy.ExecuteAsync(new[] { item }, CancellationToken.None);
 
             if (closeResult.CloseCanOccur)
             {
-                await closeItemAsync(item, cancellationToken).ConfigureAwait(true);
+                await closeItemAsync(item, cancellationToken);
             }
         }
         else
         {
-            await ScreenExtensions.TryDeactivateAsync(item, false, cancellationToken).ConfigureAwait(true);
+            await ScreenExtensions.TryDeactivateAsync(item, close: false, cancellationToken);
         }
     }
 }

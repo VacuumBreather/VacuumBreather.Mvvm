@@ -6,15 +6,12 @@ using CommunityToolkit.Diagnostics;
 
 namespace VacuumBreather.Mvvm.Core;
 
-/// <summary>
-///     An implementation of <see cref="IConductor" /> that holds on to and activates only one
-///     item at a time.
-/// </summary>
+/// <summary>An implementation of <see cref="IConductor"/> that holds on to and activates only one item at a time.</summary>
 /// <typeparam name="T">The type that is being conducted.</typeparam>
 public class Conductor<T> : ConductorBaseWithActiveItem<T>
     where T : class
 {
-    /// <inheritdoc />
+    /// <inheritdoc/>
     public override async ValueTask ActivateItemAsync(T? item, CancellationToken cancellationToken = default)
     {
         Guard.IsNotNull(item);
@@ -23,30 +20,30 @@ public class Conductor<T> : ConductorBaseWithActiveItem<T>
         {
             if (IsActive)
             {
-                await ScreenExtensions.TryActivateAsync(item, cancellationToken).ConfigureAwait(true);
-                OnActivationProcessed(item, true);
+                await ScreenExtensions.TryActivateAsync(item, cancellationToken);
+
+                OnActivationProcessed(item, success: true);
             }
 
             return;
         }
 
-        bool closeCanOccur = ActiveItem is null ||
-                             (await CloseStrategy.ExecuteAsync(new[] { ActiveItem }, cancellationToken)
-                                                 .ConfigureAwait(true)).CloseCanOccur;
+        var closeCanOccur = ActiveItem is null ||
+                            (await CloseStrategy.ExecuteAsync(new[] { ActiveItem }, cancellationToken)).CloseCanOccur;
 
         if (closeCanOccur)
         {
-            await ChangeActiveItemAsync(item, true, cancellationToken).ConfigureAwait(true);
+            await ChangeActiveItemAsync(item, closePrevious: true, cancellationToken);
         }
         else
         {
-            OnActivationProcessed(item, false);
+            OnActivationProcessed(item, success: false);
         }
     }
 
     /// <summary>Called to check whether or not this instance can close.</summary>
     /// <param name="cancellationToken">The cancellation token to cancel operation.</param>
-    /// <returns>A <see cref="ValueTask" /> representing the asynchronous operation.</returns>
+    /// <returns>A <see cref="ValueTask"/> representing the asynchronous operation.</returns>
     public override async ValueTask<bool> CanCloseAsync(CancellationToken cancellationToken = default)
     {
         if (ActiveItem is null)
@@ -54,8 +51,7 @@ public class Conductor<T> : ConductorBaseWithActiveItem<T>
             return true;
         }
 
-        ICloseResult<T> closeResult = await CloseStrategy.ExecuteAsync(new[] { ActiveItem }, cancellationToken)
-                                                         .ConfigureAwait(true);
+        ICloseResult<T> closeResult = await CloseStrategy.ExecuteAsync(new[] { ActiveItem }, cancellationToken);
 
         return closeResult.CloseCanOccur;
     }
@@ -64,7 +60,7 @@ public class Conductor<T> : ConductorBaseWithActiveItem<T>
     /// <param name="item">The item to close.</param>
     /// <param name="close">Indicates whether or not to close the item after deactivating it.</param>
     /// <param name="cancellationToken">The cancellation token to cancel operation.</param>
-    /// <returns>A <see cref="ValueTask" /> representing the asynchronous operation.</returns>
+    /// <returns>A <see cref="ValueTask"/> representing the asynchronous operation.</returns>
     public override async ValueTask DeactivateItemAsync(T item,
                                                         bool close,
                                                         CancellationToken cancellationToken = default)
@@ -76,13 +72,12 @@ public class Conductor<T> : ConductorBaseWithActiveItem<T>
             return;
         }
 
-        bool closeCanOccur = ActiveItem is null ||
-                             (await CloseStrategy.ExecuteAsync(new[] { ActiveItem }, cancellationToken)
-                                                 .ConfigureAwait(true)).CloseCanOccur;
+        var closeCanOccur = ActiveItem is null ||
+                            (await CloseStrategy.ExecuteAsync(new[] { ActiveItem }, cancellationToken)).CloseCanOccur;
 
         if (closeCanOccur)
         {
-            await ChangeActiveItemAsync(default, close, cancellationToken).ConfigureAwait(true);
+            await ChangeActiveItemAsync(newItem: default, close, cancellationToken);
         }
     }
 
@@ -95,7 +90,7 @@ public class Conductor<T> : ConductorBaseWithActiveItem<T>
 
     /// <summary>Called when activating.</summary>
     /// <param name="cancellationToken">The cancellation token to cancel operation.</param>
-    /// <returns>A <see cref="ValueTask" /> representing the asynchronous operation.</returns>
+    /// <returns>A <see cref="ValueTask"/> representing the asynchronous operation.</returns>
     protected override ValueTask OnActivateAsync(CancellationToken cancellationToken)
     {
         return ScreenExtensions.TryActivateAsync(ActiveItem, cancellationToken);
@@ -104,7 +99,7 @@ public class Conductor<T> : ConductorBaseWithActiveItem<T>
     /// <summary>Called when deactivating.</summary>
     /// <param name="close">Indicates whether this instance will be closed.</param>
     /// <param name="cancellationToken">The cancellation token to cancel operation.</param>
-    /// <returns>A <see cref="ValueTask" /> representing the asynchronous operation.</returns>
+    /// <returns>A <see cref="ValueTask"/> representing the asynchronous operation.</returns>
     protected override ValueTask OnDeactivateAsync(bool close, CancellationToken cancellationToken)
     {
         return ScreenExtensions.TryDeactivateAsync(ActiveItem, close, cancellationToken);

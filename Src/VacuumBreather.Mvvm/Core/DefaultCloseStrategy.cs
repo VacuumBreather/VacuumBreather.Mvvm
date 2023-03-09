@@ -4,37 +4,34 @@ using System.Threading.Tasks;
 
 namespace VacuumBreather.Mvvm.Core;
 
-/// <summary>
-///     Used to gather the results from multiple child elements which may or may not prevent
-///     closing.
-/// </summary>
+/// <summary>Used to gather the results from multiple child elements which may or may not prevent closing.</summary>
 /// <typeparam name="T">The type of child element.</typeparam>
 public class DefaultCloseStrategy<T> : ICloseStrategy<T>
 {
     private readonly bool _closeConductedItemsWhenConductorCannotClose;
 
-    /// <summary>Initializes a new instance of the <see cref="DefaultCloseStrategy{T}" /> class.</summary>
+    /// <summary>Initializes a new instance of the <see cref="DefaultCloseStrategy{T}"/> class.</summary>
     /// <param name="closeConductedItemsWhenConductorCannotClose">
-    ///     Indicates that even if all conducted
-    ///     items are not closable, those that are should be closed. The default is <see langword="false" />.
+    ///     Indicates that even if all conducted items are not closable,
+    ///     those that are should be closed. The default is <see langword="false"/>.
     /// </param>
     public DefaultCloseStrategy(bool closeConductedItemsWhenConductorCannotClose = false)
     {
         _closeConductedItemsWhenConductorCannotClose = closeConductedItemsWhenConductorCannotClose;
     }
 
-    /// <inheritdoc />
+    /// <inheritdoc/>
     public async ValueTask<ICloseResult<T>> ExecuteAsync(IEnumerable<T> toClose,
                                                          CancellationToken cancellationToken = default)
     {
         List<T> closeableChildren = new();
-        bool closeCanOccur = true;
+        var closeCanOccur = true;
 
-        foreach (T child in toClose)
+        foreach (var child in toClose)
         {
             if (child is IGuardClose guarded)
             {
-                bool canClose = await guarded.CanCloseAsync(cancellationToken).ConfigureAwait(true);
+                var canClose = await guarded.CanCloseAsync(cancellationToken);
 
                 if (canClose)
                 {

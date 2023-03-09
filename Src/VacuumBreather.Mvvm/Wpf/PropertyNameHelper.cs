@@ -10,6 +10,6 @@ public static class PropertyNameHelper
     /// <returns>The name of a dependency property minus the "Property" part.</returns>
     public static string GetName(string dependencyPropertyName)
     {
-        return dependencyPropertyName.Replace("Property", string.Empty, StringComparison.InvariantCulture);
+        return dependencyPropertyName.Replace(oldValue: "Property", string.Empty, StringComparison.InvariantCulture);
     }
 }

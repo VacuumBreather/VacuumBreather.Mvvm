@@ -4,17 +4,17 @@ using System.Linq;
 
 namespace VacuumBreather.Mvvm.Core;
 
-/// <summary>Provides extension methods for the <see cref="IBindableCollection{T}" /> type.</summary>
+/// <summary>Provides extension methods for the <see cref="IBindableCollection{T}"/> type.</summary>
 internal static class BindableCollectionExtensions
 {
     /// <summary>
-    ///     Assigns a <see cref="IParent" /> to items being added to the collection and sets it to
-    ///     <see langword="null" /> from removed items.
+    ///     Assigns a <see cref="IParent"/> to items being added to the collection and sets it to <see langword="null"/>
+    ///     from removed items.
     /// </summary>
     /// <typeparam name="T">The type of elements contained in the collection.</typeparam>
     /// <param name="children">The collection of child items.</param>
     /// <param name="parent">The parent.</param>
-    public static void AreChildrenOf<T>(this IBindableCollection<T> children, IParent parent)
+    internal static void AreChildrenOf<T>(this IBindableCollection<T> children, IParent parent)
         where T : class
     {
         children.CollectionChanged += (s, e) =>
@@ -27,12 +27,12 @@ internal static class BindableCollectionExtensions
                     break;
 
                 case NotifyCollectionChangedAction.Remove:
-                    SetParent(e.OldItems, null);
+                    SetParent(e.OldItems, parent: null);
 
                     break;
 
                 case NotifyCollectionChangedAction.Replace:
-                    SetParent(e.OldItems, null);
+                    SetParent(e.OldItems, parent: null);
                     SetParent(e.NewItems, parent);
 
                     break;

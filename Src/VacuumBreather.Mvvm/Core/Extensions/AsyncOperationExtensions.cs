@@ -3,30 +3,32 @@ using JetBrains.Annotations;
 
 namespace VacuumBreather.Mvvm.Core;
 
-/// <summary>Provides extension methods for the <see cref="IAsyncOperation" /> type.</summary>
+/// <summary>Provides extension methods for the <see cref="IAsyncOperation"/> type.</summary>
 [PublicAPI]
 public static class AsyncOperationExtensions
 {
-    /// <summary>
-    ///     Assigns the <see cref="IAsyncOperation" /> to an out variable for external use.
-    /// </summary>
-    /// <param name="operation">The <see cref="IAsyncOperation" />.</param>
-    /// <param name="asyncOperation">The out variable to assign the <see cref="IAsyncOperation" /> to.</param>
-    /// <returns>The same instance of the <see cref="IAsyncOperation" /> for chaining.</returns>
-    public static IAsyncOperation Assign(this IAsyncOperation operation, out IAsyncOperation asyncOperation)
+    /// <summary>Assigns the <see cref="IAsyncOperation"/> to an out variable for external use.</summary>
+    /// <typeparam name="TAsyncOperation">The type of the asynchronous operation.</typeparam>
+    /// <param name="operation">The asynchronous operation.</param>
+    /// <param name="asyncOperation">The out variable to assign the <see cref="IAsyncOperation"/> to.</param>
+    /// <returns>The same instance of the <see cref="IAsyncOperation"/> for chaining.</returns>
+    public static IAsyncOperation Assign<TAsyncOperation>(this TAsyncOperation operation,
+                                                          out IAsyncOperation asyncOperation)
+        where TAsyncOperation : class, IAsyncOperation
     {
         asyncOperation = operation;
 
         return operation;
     }
 
-    /// <summary>
-    ///     Causes the <see cref="IActivate.Activating" /> event to cancel this operation.
-    /// </summary>
-    /// <param name="operation">The <see cref="IAsyncOperation" />.</param>
-    /// <param name="activate">The <see cref="IActivate" /> that triggers the cancellation.</param>
-    /// <returns>The same instance of the <see cref="IAsyncOperation" /> for chaining.</returns>
-    public static IAsyncOperation CancelWhenActivating(this IAsyncOperation operation, IActivate activate)
+    /// <summary>Causes the <see cref="IActivate.Activating"/> event to cancel this operation.</summary>
+    /// <typeparam name="TAsyncOperation">The type of the asynchronous operation.</typeparam>
+    /// <param name="operation">The asynchronous operation.</param>
+    /// <param name="activate">The <see cref="IActivate"/> that triggers the cancellation.</param>
+    /// <returns>The same instance of the <see cref="IAsyncOperation"/> for chaining.</returns>
+    public static IAsyncOperation CancelWhenActivating<TAsyncOperation>(this TAsyncOperation operation,
+                                                                        IActivate activate)
+        where TAsyncOperation : class, IAsyncOperation
     {
         var weakReference = new WeakReference(operation);
 
@@ -36,7 +38,14 @@ public static class AsyncOperationExtensions
             {
                 referencedOperation.Cancel();
 
-                await referencedOperation;
+                try
+                {
+                    await referencedOperation;
+                }
+                catch (OperationCanceledException)
+                {
+                    // Ignore this expected exception.
+                }
             }
         };
 
@@ -44,13 +53,16 @@ public static class AsyncOperationExtensions
     }
 
     /// <summary>
-    ///     Causes the <see cref="IDeactivate.Deactivating" /> event to cancel this operation when the
-    ///     <see cref="DeactivatingEventArgs.WillClose" /> flag is set.
+    ///     Causes the <see cref="IDeactivate.Deactivating"/> event to cancel this operation when the
+    ///     <see cref="DeactivatingEventArgs.WillClose"/> flag is set.
     /// </summary>
-    /// <param name="operation">The <see cref="IAsyncOperation" />.</param>
-    /// <param name="deactivate">The <see cref="IDeactivate" /> that triggers the cancellation on closing.</param>
-    /// <returns>The same instance of the <see cref="IAsyncOperation" /> for chaining.</returns>
-    public static IAsyncOperation CancelWhenClosing(this IAsyncOperation operation, IDeactivate deactivate)
+    /// <typeparam name="TAsyncOperation">The type of the asynchronous operation.</typeparam>
+    /// <param name="operation">The asynchronous operation.</param>
+    /// <param name="deactivate">The <see cref="IDeactivate"/> that triggers the cancellation on closing.</param>
+    /// <returns>The same instance of the <see cref="IAsyncOperation"/> for chaining.</returns>
+    public static IAsyncOperation CancelWhenClosing<TAsyncOperation>(this TAsyncOperation operation,
+                                                                     IDeactivate deactivate)
+        where TAsyncOperation : class, IAsyncOperation
     {
         var weakReference = new WeakReference(operation);
 
@@ -60,20 +72,29 @@ public static class AsyncOperationExtensions
             {
                 referencedOperation.Cancel();
 
-                await referencedOperation;
+                try
+                {
+                    await referencedOperation;
+                }
+                catch (OperationCanceledException)
+                {
+                    // Ignore this expected exception.
+                }
             }
         };
 
         return operation;
     }
 
-    /// <summary>
-    ///     Causes the <see cref="IDeactivate.Deactivating" /> event to cancel this operation.
-    /// </summary>
-    /// <param name="operation">The <see cref="IAsyncOperation" />.</param>
-    /// <param name="deactivate">The <see cref="IDeactivate" /> that triggers the cancellation.</param>
-    /// <returns>The same instance of the <see cref="IAsyncOperation" /> for chaining.</returns>
-    public static IAsyncOperation CancelWhenDeactivating(this IAsyncOperation operation, IDeactivate deactivate)
+    /// <summary>Causes the <see cref="IDeactivate.Deactivating"/> event to cancel this operation.</summary>
+    /// <typeparam name="TAsyncOperation">The type of the asynchronous operation.</typeparam>
+    /// <param name="operation">The asynchronous operation.</param>
+    /// <param name="deactivate">The <see cref="IDeactivate"/> that triggers the cancellation.</param>
+    /// <returns>The same instance of the <see cref="IAsyncOperation"/> for chaining.</returns>
+    public static IAsyncOperation CancelWhenDeactivating<TAsyncOperation>(
+        this TAsyncOperation operation,
+        IDeactivate deactivate)
+        where TAsyncOperation : class, IAsyncOperation
     {
         var weakReference = new WeakReference(operation);
 
@@ -83,7 +104,14 @@ public static class AsyncOperationExtensions
             {
                 referencedOperation.Cancel();
 
-                await referencedOperation;
+                try
+                {
+                    await referencedOperation;
+                }
+                catch (OperationCanceledException)
+                {
+                    // Ignore this expected exception.
+                }
             }
         };
 

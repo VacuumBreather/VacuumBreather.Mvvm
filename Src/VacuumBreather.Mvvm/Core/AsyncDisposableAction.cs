@@ -12,7 +12,7 @@ public sealed class AsyncDisposableAction : IAsyncDisposable
     private readonly Func<ValueTask> _asyncOperation;
     private bool _isDisposed;
 
-    /// <summary>Initializes a new instance of the <see cref="AsyncDisposableAction" /> class.</summary>
+    /// <summary>Initializes a new instance of the <see cref="AsyncDisposableAction"/> class.</summary>
     /// <param name="asyncOperation">The asynchronous operation to execute on async disposal.</param>
     public AsyncDisposableAction(Func<ValueTask> asyncOperation)
     {
@@ -22,6 +22,7 @@ public sealed class AsyncDisposableAction : IAsyncDisposable
     }
 
     /// <summary>Executes the supplied asynchronous operation.</summary>
+    /// <returns>A <see cref="ValueTask"/> that represents the asynchronous save operation.</returns>
     public async ValueTask DisposeAsync()
     {
         if (_isDisposed)

@@ -2,18 +2,20 @@
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Diagnostics;
+using JetBrains.Annotations;
 
 namespace VacuumBreather.Mvvm.Core;
 
-/// <summary>
-///     Provides extension methods for the <see cref="IScreen" /> and <see cref="IConductor" /> types.
-/// </summary>
+/// <summary>Provides extension methods for the <see cref="IScreen"/> and <see cref="IConductor"/> types.</summary>
+[PublicAPI]
 public static class ScreenExtensions
 {
     /// <summary>Activates a child whenever the specified parent is activated.</summary>
+    /// <typeparam name="TParent">The type of the parent.</typeparam>
     /// <param name="child">The child to activate.</param>
     /// <param name="parent">The parent whose activation triggers the child's activation.</param>
-    public static void ActivateWith(this IActivate child, IActivate parent)
+    public static void ActivateWith<TParent>(this IActivate child, TParent parent)
+        where TParent : IActivate
     {
         Guard.IsNotNull(parent);
 
@@ -23,7 +25,7 @@ public static class ScreenExtensions
         {
             if (childReference.Target is IActivate activate)
             {
-                await activate.ActivateAsync(cancellationToken).ConfigureAwait(true);
+                await activate.ActivateAsync(cancellationToken);
             }
             else
             {
@@ -34,17 +36,11 @@ public static class ScreenExtensions
         parent.Activated += OnParentActivated;
     }
 
-    /// <summary>
-    ///     Activates and Deactivates a child whenever the specified parent is Activated or
-    ///     Deactivated.
-    /// </summary>
+    /// <summary>Activates and Deactivates a child whenever the specified parent is Activated or Deactivated.</summary>
     /// <typeparam name="TChild">The type of the conducted child.</typeparam>
     /// <typeparam name="TParent">The type of the conductor parent.</typeparam>
     /// <param name="child">The child to activate/deactivate.</param>
-    /// <param name="parent">
-    ///     The parent whose activation/deactivation triggers the child's
-    ///     activation/deactivation.
-    /// </param>
+    /// <param name="parent">The parent whose activation/deactivation triggers the child's activation/deactivation.</param>
     public static void ConductWith<TChild, TParent>(this TChild child, TParent parent)
         where TChild : IActivate, IDeactivate
         where TParent : IActivate, IDeactivate
@@ -54,9 +50,11 @@ public static class ScreenExtensions
     }
 
     /// <summary>Deactivates a child whenever the specified parent is deactivated.</summary>
+    /// <typeparam name="TParent">The type of the parent.</typeparam>
     /// <param name="child">The child to deactivate.</param>
     /// <param name="parent">The parent whose deactivation triggers the child's deactivation.</param>
-    public static void DeactivateWith(this IDeactivate child, IDeactivate parent)
+    public static void DeactivateWith<TParent>(this IDeactivate child, TParent parent)
+        where TParent : IDeactivate
     {
         Guard.IsNotNull(parent);
 
@@ -66,7 +64,7 @@ public static class ScreenExtensions
         {
             if (childReference.Target is IDeactivate deactivate)
             {
-                await deactivate.DeactivateAsync(e.WasClosed, cancellationToken).ConfigureAwait(true);
+                await deactivate.DeactivateAsync(e.WasClosed, cancellationToken);
             }
             else
             {
@@ -77,31 +75,31 @@ public static class ScreenExtensions
         parent.Deactivated += AsyncEventHandler;
     }
 
-    /// <summary>Activates the item if it implements <see cref="IActivate" />, otherwise does nothing.</summary>
+    /// <summary>Activates the item if it implements <see cref="IActivate"/>, otherwise does nothing.</summary>
     /// <param name="potentialActivate">The potential activate.</param>
     /// <param name="cancellationToken">(Optional) The cancellation token to cancel operation.</param>
-    /// <returns>A <see cref="ValueTask" /> representing the asynchronous operation.</returns>
+    /// <returns>A <see cref="ValueTask"/> representing the asynchronous operation.</returns>
     public static async ValueTask TryActivateAsync(object? potentialActivate,
                                                    CancellationToken cancellationToken = default)
     {
         if (potentialActivate is IActivate activator)
         {
-            await activator.ActivateAsync(cancellationToken).ConfigureAwait(true);
+            await activator.ActivateAsync(cancellationToken);
         }
     }
 
-    /// <summary>Deactivates the item if it implements <see cref="IDeactivate" />, otherwise does nothing.</summary>
+    /// <summary>Deactivates the item if it implements <see cref="IDeactivate"/>, otherwise does nothing.</summary>
     /// <param name="potentialDeactivate">The potential deactivate.</param>
     /// <param name="close">Indicates whether or not to close the item after deactivating it.</param>
     /// <param name="cancellationToken">(Optional) The cancellation token to cancel operation.</param>
-    /// <returns>A <see cref="ValueTask" /> representing the asynchronous operation.</returns>
+    /// <returns>A <see cref="ValueTask"/> representing the asynchronous operation.</returns>
     public static async ValueTask TryDeactivateAsync(object? potentialDeactivate,
                                                      bool close,
                                                      CancellationToken cancellationToken = default)
     {
         if (potentialDeactivate is IDeactivate deactivate)
         {
-            await deactivate.DeactivateAsync(close, cancellationToken).ConfigureAwait(true);
+            await deactivate.DeactivateAsync(close, cancellationToken);
         }
     }
 }

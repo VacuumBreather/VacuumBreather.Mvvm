@@ -7,7 +7,7 @@ using JetBrains.Annotations;
 
 namespace VacuumBreather.Mvvm.Core;
 
-/// <summary>Contains implementations of <see cref="IConductor" /> that hold on many items.</summary>
+/// <summary>Contains implementations of <see cref="IConductor"/> that hold on many items.</summary>
 /// <typeparam name="T">The type that is being conducted.</typeparam>
 [PublicAPI]
 public class ConductorCollectionOneActive<T> : ConductorBaseWithActiveItem<T>, ICollectionConductorWithActiveItem<T>
@@ -17,7 +17,7 @@ public class ConductorCollectionOneActive<T> : ConductorBaseWithActiveItem<T>, I
 
     /// <summary>
     ///     Initializes a new instance of the
-    ///     <see cref="VacuumBreather.Mvvm.Core.ConductorCollectionOneActive{T}" /> class.
+    ///     <see cref="VacuumBreather.Mvvm.Core.ConductorCollectionOneActive{T}"/> class.
     /// </summary>
     public ConductorCollectionOneActive()
     {
@@ -27,34 +27,34 @@ public class ConductorCollectionOneActive<T> : ConductorBaseWithActiveItem<T>, I
     /// <summary>Gets the items that are currently being conducted.</summary>
     public IBindableCollection<T> Items => _items;
 
-    /// <inheritdoc />
+    /// <inheritdoc/>
     public sealed override IEnumerable<T> GetChildren()
     {
         return _items;
     }
 
-    /// <inheritdoc />
+    /// <inheritdoc/>
     public override async ValueTask ActivateItemAsync(T? item, CancellationToken cancellationToken = default)
     {
         if (item?.Equals(ActiveItem) ?? false)
         {
             if (IsActive)
             {
-                await ScreenExtensions.TryActivateAsync(item, cancellationToken).ConfigureAwait(true);
-                OnActivationProcessed(item, true);
+                await ScreenExtensions.TryActivateAsync(item, cancellationToken);
+
+                OnActivationProcessed(item, success: true);
             }
 
             return;
         }
 
-        await ChangeActiveItemAsync(item, false, cancellationToken).ConfigureAwait(true);
+        await ChangeActiveItemAsync(item, closePrevious: false, cancellationToken);
     }
 
-    /// <inheritdoc />
+    /// <inheritdoc/>
     public override async ValueTask<bool> CanCloseAsync(CancellationToken cancellationToken = default)
     {
-        ICloseResult<T> closeResult = await CloseStrategy.ExecuteAsync(_items.ToList(), cancellationToken)
-                                                         .ConfigureAwait(true);
+        ICloseResult<T> closeResult = await CloseStrategy.ExecuteAsync(_items.ToList(), cancellationToken);
 
         if (closeResult.CloseCanOccur || !closeResult.Children.Any())
         {
@@ -66,24 +66,26 @@ public class ConductorCollectionOneActive<T> : ConductorBaseWithActiveItem<T>, I
         if (ActiveItem is not null && closable.Contains(ActiveItem))
         {
             List<T> list = _items.ToList();
-            T? next = ActiveItem;
+            var next = ActiveItem;
 
             do
             {
-                T? previous = next;
+                var previous = next;
                 next = DetermineNextItemToActivate(list, list.IndexOf(previous));
                 list.Remove(previous);
             } while (next is not null && closable.Contains(next));
 
-            T? previousActive = ActiveItem;
-            await ChangeActiveItemAsync(next, true, cancellationToken).ConfigureAwait(true);
+            var previousActive = ActiveItem;
+
+            await ChangeActiveItemAsync(next, closePrevious: true, cancellationToken);
+
             _items.Remove(previousActive);
             closable.Remove(previousActive);
         }
 
-        foreach (IDeactivate deactivate in closable.OfType<IDeactivate>())
+        foreach (var deactivate in closable.OfType<IDeactivate>())
         {
-            await deactivate.DeactivateAsync(true, cancellationToken).ConfigureAwait(true);
+            await deactivate.DeactivateAsync(close: true, cancellationToken);
         }
 
         _items.RemoveRange(closable);
@@ -91,12 +93,10 @@ public class ConductorCollectionOneActive<T> : ConductorBaseWithActiveItem<T>, I
         return closeResult.CloseCanOccur;
     }
 
-    /// <inheritdoc />
-    public override async ValueTask DeactivateItemAsync(T item,
-                                                        bool close,
-                                                        CancellationToken cancellationToken = default)
+    /// <inheritdoc/>
+    public override ValueTask DeactivateItemAsync(T item, bool close, CancellationToken cancellationToken = default)
     {
-        await this.DeactivateItemAsync(item, close, CloseItemCoreAsync, cancellationToken).ConfigureAwait(true);
+        return this.DeactivateItemAsync(item, close, CloseItemCoreAsync, cancellationToken);
     }
 
     /// <summary>Determines the next item to activate based on the last active index.</summary>
@@ -110,11 +110,11 @@ public class ConductorCollectionOneActive<T> : ConductorBaseWithActiveItem<T>, I
     {
         Guard.IsNotNull(list);
 
-        int toRemoveAt = lastIndex - 1;
+        var toRemoveAt = lastIndex - 1;
 
         if ((toRemoveAt == -1) && (list.Count > 1))
         {
-            return list[1];
+            return list[index: 1];
         }
 
         if ((toRemoveAt > -1) && (toRemoveAt < list.Count - 1))
@@ -125,7 +125,7 @@ public class ConductorCollectionOneActive<T> : ConductorBaseWithActiveItem<T>, I
         return default;
     }
 
-    /// <inheritdoc />
+    /// <inheritdoc/>
     protected override T? EnsureItem(T? newItem)
     {
         if (newItem == null)
@@ -134,7 +134,7 @@ public class ConductorCollectionOneActive<T> : ConductorBaseWithActiveItem<T>, I
         }
         else
         {
-            int index = _items.IndexOf(newItem);
+            var index = _items.IndexOf(newItem);
 
             if (index == -1)
             {
@@ -149,27 +149,27 @@ public class ConductorCollectionOneActive<T> : ConductorBaseWithActiveItem<T>, I
         return base.EnsureItem(newItem);
     }
 
-    /// <inheritdoc />
+    /// <inheritdoc/>
     protected override ValueTask OnActivateAsync(CancellationToken cancellationToken)
     {
         return ScreenExtensions.TryActivateAsync(ActiveItem, cancellationToken);
     }
 
-    /// <inheritdoc />
+    /// <inheritdoc/>
     protected override async ValueTask OnDeactivateAsync(bool close, CancellationToken cancellationToken)
     {
         if (close)
         {
-            foreach (IDeactivate deactivate in _items.OfType<IDeactivate>())
+            foreach (var deactivate in _items.OfType<IDeactivate>())
             {
-                await deactivate.DeactivateAsync(true, cancellationToken).ConfigureAwait(true);
+                await deactivate.DeactivateAsync(close: true, cancellationToken);
             }
 
             _items.Clear();
         }
         else
         {
-            await ScreenExtensions.TryDeactivateAsync(ActiveItem, false, cancellationToken).ConfigureAwait(true);
+            await ScreenExtensions.TryDeactivateAsync(ActiveItem, close: false, cancellationToken);
         }
     }
 
@@ -177,14 +177,14 @@ public class ConductorCollectionOneActive<T> : ConductorBaseWithActiveItem<T>, I
     {
         if (item.Equals(ActiveItem))
         {
-            int index = _items.IndexOf(item);
-            T? next = DetermineNextItemToActivate(_items, index);
+            var index = _items.IndexOf(item);
+            var next = DetermineNextItemToActivate(_items, index);
 
-            await ChangeActiveItemAsync(next, true, cancellationToken).ConfigureAwait(true);
+            await ChangeActiveItemAsync(next, closePrevious: true, cancellationToken);
         }
         else
         {
-            await ScreenExtensions.TryDeactivateAsync(item, true, cancellationToken).ConfigureAwait(true);
+            await ScreenExtensions.TryDeactivateAsync(item, close: true, cancellationToken);
         }
 
         _items.Remove(item);

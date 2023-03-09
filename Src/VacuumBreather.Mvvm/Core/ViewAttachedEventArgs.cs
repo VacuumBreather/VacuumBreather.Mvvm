@@ -2,7 +2,7 @@
 
 namespace VacuumBreather.Mvvm.Core;
 
-/// <summary>Event arguments for the <see cref="IViewAware.ViewAttached" /> event.</summary>
+/// <summary>Event arguments for the <see cref="IViewAware.ViewAttached"/> event.</summary>
 public class ViewAttachedEventArgs : EventArgs
 {
     /// <summary>Gets or sets the ID of the context in which the view appears.</summary>

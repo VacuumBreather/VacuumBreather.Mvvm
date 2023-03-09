@@ -10,10 +10,11 @@ public static class Disposable
 
     private sealed class EmptyDisposable : IDisposable
     {
-        public static readonly IDisposable Instance = new EmptyDisposable();
+        internal static readonly IDisposable Instance = new EmptyDisposable();
 
         public void Dispose()
         {
+            // This is a no-op method.
         }
     }
 }

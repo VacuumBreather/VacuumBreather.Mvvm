@@ -15,6 +15,6 @@ public interface IViewAware
 
     /// <summary>Gets a view previously attached to this instance.</summary>
     /// <param name="context">The ID of the context in which the view appears.</param>
-    /// <returns>The attached view, or <see langword="null" /> if no view has been attached for the specified context.</returns>
+    /// <returns>The attached view, or <see langword="null"/> if no view has been attached for the specified context.</returns>
     object? GetView(Guid context);
 }

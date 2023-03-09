@@ -4,19 +4,13 @@ using System.Threading;
 namespace VacuumBreather.Mvvm.Core;
 
 /// <summary>
-///     <para>
-///         Thread safe cancellation token source. Allows the following:
-///     </para>
+///     <para>Thread safe cancellation token source. Allows the following:</para>
 ///     <list type="bullet">
 ///         <item>
-///             <description>
-///                 Cancel will no-op if the token is disposed.
-///             </description>
+///             <description>Cancel will no-op if the token is disposed.</description>
 ///         </item>
 ///         <item>
-///             <description>
-///                 Dispose may be called after Cancel.
-///             </description>
+///             <description>Dispose may be called after Cancel.</description>
 ///         </item>
 ///     </list>
 /// </summary>
@@ -25,9 +19,7 @@ public sealed class SafeCancellationTokenSource : IDisposable, ICanBeCanceled
     private readonly CancellationTokenSource _cts;
     private int _state;
 
-    /// <summary>
-    ///     Initializes a new instance of the <see cref="SafeCancellationTokenSource" /> class.
-    /// </summary>
+    /// <summary>Initializes a new instance of the <see cref="SafeCancellationTokenSource"/> class.</summary>
     public SafeCancellationTokenSource()
     {
         _cts = new CancellationTokenSource();
@@ -45,24 +37,24 @@ public sealed class SafeCancellationTokenSource : IDisposable, ICanBeCanceled
         }
     }
 
-    /// <inheritdoc />
+    /// <inheritdoc/>
     public bool IsCancellationRequested => _state != State.Initial;
 
-    /// <inheritdoc />
+    /// <inheritdoc/>
     public CancellationToken Token { get; }
 
     /// <summary>
-    ///     Creates a <see cref="SafeCancellationTokenSource" /> that will be in the canceled state
-    ///     when the supplied token is in the canceled state.
+    ///     Creates a <see cref="SafeCancellationTokenSource"/> that will be in the canceled state when the supplied token
+    ///     is in the canceled state.
     /// </summary>
     /// <param name="token">The <see cref="CancellationToken">CancellationToken</see> to observe.</param>
-    /// <returns>A <see cref="SafeCancellationTokenSource" /> that is linked to the source token.</returns>
+    /// <returns>A <see cref="SafeCancellationTokenSource"/> that is linked to the source token.</returns>
     public static SafeCancellationTokenSource CreateLinkedTokenSource(CancellationToken token)
     {
         return new SafeCancellationTokenSource(CancellationTokenSource.CreateLinkedTokenSource(token));
     }
 
-    /// <inheritdoc />
+    /// <inheritdoc/>
     public void Cancel(bool useNewThread = true)
     {
         var value = Interlocked.CompareExchange(ref _state, State.Cancelling, State.Initial);
@@ -79,11 +71,11 @@ public sealed class SafeCancellationTokenSource : IDisposable, ICanBeCanceled
             // Because cancellation tokens are so poorly behaved, always invoke the cancellation token on
             // another thread. Don't capture any of the context (execution context or sync context)
             // while doing this.
-            ThreadPool.UnsafeQueueUserWorkItem(_ => { CancelCore(); }, null);
+            ThreadPool.UnsafeQueueUserWorkItem(_ => { CancelCore(); }, state: null);
         }
     }
 
-    /// <inheritdoc />
+    /// <inheritdoc/>
     public void Dispose()
     {
         var value = Interlocked.Exchange(ref _state, State.Disposing);
@@ -127,10 +119,10 @@ public sealed class SafeCancellationTokenSource : IDisposable, ICanBeCanceled
 
     private static class State
     {
-        public const int Cancelled = 2;
-        public const int Cancelling = 1;
-        public const int Disposed = 4;
-        public const int Disposing = 3;
-        public const int Initial = 0;
+        internal const int Cancelled = 2;
+        internal const int Cancelling = 1;
+        internal const int Disposed = 4;
+        internal const int Disposing = 3;
+        internal const int Initial = 0;
     }
 }

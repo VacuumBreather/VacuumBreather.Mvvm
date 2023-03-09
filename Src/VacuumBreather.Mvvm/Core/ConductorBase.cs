@@ -6,14 +6,14 @@ using System.Threading.Tasks;
 
 namespace VacuumBreather.Mvvm.Core;
 
-/// <summary>A base class for various implementations of <see cref="IConductor" />.</summary>
+/// <summary>A base class for various implementations of <see cref="IConductor"/>.</summary>
 /// <typeparam name="T">The type that is being conducted.</typeparam>
 public abstract class ConductorBase<T> : Screen, IConductor<T>, IParent<T>
     where T : class
 {
     private ICloseStrategy<T> _closeStrategy = new DefaultCloseStrategy<T>();
 
-    /// <inheritdoc />
+    /// <inheritdoc/>
     public event EventHandler<ActivationProcessedEventArgs>? ActivationProcessed;
 
     /// <summary>Gets or sets the close strategy.</summary>
@@ -24,28 +24,28 @@ public abstract class ConductorBase<T> : Screen, IConductor<T>, IParent<T>
         set => SetProperty(ref _closeStrategy, value);
     }
 
-    /// <inheritdoc />
+    /// <inheritdoc/>
     public abstract ValueTask ActivateItemAsync(T? item, CancellationToken cancellationToken = default);
 
-    /// <inheritdoc />
+    /// <inheritdoc/>
     public abstract ValueTask DeactivateItemAsync(T item, bool close, CancellationToken cancellationToken = default);
 
-    /// <inheritdoc />
+    /// <inheritdoc/>
     public abstract IEnumerable<T> GetChildren();
 
-    /// <inheritdoc />
+    /// <inheritdoc/>
     ValueTask IConductor.ActivateItemAsync(object? item, CancellationToken cancellationToken)
     {
         return ActivateItemAsync((T?)item, cancellationToken);
     }
 
-    /// <inheritdoc />
+    /// <inheritdoc/>
     ValueTask IConductor.DeactivateItemAsync(object item, bool close, CancellationToken cancellationToken)
     {
         return DeactivateItemAsync((T)item, close, cancellationToken);
     }
 
-    /// <inheritdoc />
+    /// <inheritdoc/>
     IEnumerable IParent.GetChildren()
     {
         return GetChildren();
@@ -66,7 +66,7 @@ public abstract class ConductorBase<T> : Screen, IConductor<T>, IParent<T>
 
     /// <summary>Called by a subclass when an activation needs processing.</summary>
     /// <param name="item">The item on which activation was attempted.</param>
-    /// <param name="success">If set to <see langword="true" /> the activation was successful.</param>
+    /// <param name="success">If set to <see langword="true"/> the activation was successful.</param>
     protected virtual void OnActivationProcessed(T item, bool success)
     {
         ActivationProcessed?.Invoke(this, new ActivationProcessedEventArgs(item, success));

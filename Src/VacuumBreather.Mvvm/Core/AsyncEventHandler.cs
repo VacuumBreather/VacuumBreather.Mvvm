@@ -10,9 +10,9 @@ namespace VacuumBreather.Mvvm.Core;
 /// <param name="sender">The source of the event.</param>
 /// <param name="e">An object that contains the event data.</param>
 /// <param name="cancellationToken">(Optional) The cancellation token to cancel operation.</param>
-/// <returns>A <see cref="ValueTask" /> representing the asynchronous operation.</returns>
-[SuppressMessage("Naming",
-                 "CA1711:Identifiers should not have incorrect suffix",
+/// <returns>A <see cref="ValueTask"/> representing the asynchronous operation.</returns>
+[SuppressMessage(category: "Naming",
+                 checkId: "CA1711:Identifiers should not have incorrect suffix",
                  Justification = "This is a special type of event handler delegate. The name is appropriate.")]
 public delegate ValueTask AsyncEventHandler<in TEventArgs>(object sender,
                                                            TEventArgs e,

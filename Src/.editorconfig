@@ -1,0 +1,644 @@
+# NOTE: Requires **VS2019 16.3** or later
+
+# StyleCop.Analyzers rules with default action
+# Description: StyleCop.Analyzers with default action. Rules with IsEnabledByDefault = false are disabled.
+
+# Code files
+[*.{cs,vb}]
+
+
+# Use the LoggerMessage delegates
+dotnet_diagnostic.ca1848.severity = suggestion
+
+# Dispose objects before losing scope
+dotnet_diagnostic.ca2000.severity = suggestion
+
+# XML comment analysis disabled
+dotnet_diagnostic.sa0001.severity = warning
+
+# Invalid settings file
+dotnet_diagnostic.sa0002.severity = warning
+
+# Keywords should be spaced correctly
+dotnet_diagnostic.sa1000.severity = warning
+
+# Commas should be spaced correctly
+dotnet_diagnostic.sa1001.severity = warning
+
+# Semicolons should be spaced correctly
+dotnet_diagnostic.sa1002.severity = warning
+
+# Symbols should be spaced correctly
+dotnet_diagnostic.sa1003.severity = warning
+
+# Documentation lines should begin with single space
+dotnet_diagnostic.sa1004.severity = warning
+
+# Single line comments should begin with single space
+dotnet_diagnostic.sa1005.severity = warning
+
+# Preprocessor keywords should not be preceded by space
+dotnet_diagnostic.sa1006.severity = warning
+
+# Operator keyword should be followed by space
+dotnet_diagnostic.sa1007.severity = warning
+
+# Opening parenthesis should be spaced correctly
+dotnet_diagnostic.sa1008.severity = warning
+
+# Closing parenthesis should be spaced correctly
+dotnet_diagnostic.sa1009.severity = warning
+
+# Opening square brackets should be spaced correctly
+dotnet_diagnostic.sa1010.severity = warning
+
+# Closing square brackets should be spaced correctly
+dotnet_diagnostic.sa1011.severity = warning
+
+# Opening braces should be spaced correctly
+dotnet_diagnostic.sa1012.severity = warning
+
+# Closing braces should be spaced correctly
+dotnet_diagnostic.sa1013.severity = warning
+
+# Opening generic brackets should be spaced correctly
+dotnet_diagnostic.sa1014.severity = warning
+
+# Closing generic brackets should be spaced correctly
+dotnet_diagnostic.sa1015.severity = warning
+
+# Opening attribute brackets should be spaced correctly
+dotnet_diagnostic.sa1016.severity = warning
+
+# Closing attribute brackets should be spaced correctly
+dotnet_diagnostic.sa1017.severity = warning
+
+# Nullable type symbols should be spaced correctly
+dotnet_diagnostic.sa1018.severity = warning
+
+# Member access symbols should be spaced correctly
+dotnet_diagnostic.sa1019.severity = warning
+
+# Increment decrement symbols should be spaced correctly
+dotnet_diagnostic.sa1020.severity = warning
+
+# Negative signs should be spaced correctly
+dotnet_diagnostic.sa1021.severity = warning
+
+# Positive signs should be spaced correctly
+dotnet_diagnostic.sa1022.severity = warning
+
+# Dereference and access of symbols should be spaced correctly
+dotnet_diagnostic.sa1023.severity = warning
+
+# Colons should be spaced correctly
+dotnet_diagnostic.sa1024.severity = warning
+
+# Code should not contain multiple whitespace in a row
+dotnet_diagnostic.sa1025.severity = warning
+
+# Code should not contain space after new or stackalloc keyword in implicitly typed array allocation
+dotnet_diagnostic.sa1026.severity = warning
+
+# Use tabs correctly
+dotnet_diagnostic.sa1027.severity = warning
+
+# Code should not contain trailing whitespace
+dotnet_diagnostic.sa1028.severity = warning
+
+# Do not prefix calls with base unless local implementation exists
+dotnet_diagnostic.sa1100.severity = warning
+
+# Prefix local calls with this
+dotnet_diagnostic.sa1101.severity = none
+
+# Query clause should follow previous clause
+dotnet_diagnostic.sa1102.severity = warning
+
+# Query clauses should be on separate lines or all on one line
+dotnet_diagnostic.sa1103.severity = warning
+
+# Query clause should begin on new line when previous clause spans multiple lines
+dotnet_diagnostic.sa1104.severity = warning
+
+# Query clauses spanning multiple lines should begin on own line
+dotnet_diagnostic.sa1105.severity = warning
+
+# Code should not contain empty statements
+dotnet_diagnostic.sa1106.severity = warning
+
+# Code should not contain multiple statements on one line
+dotnet_diagnostic.sa1107.severity = warning
+
+# Block statements should not contain embedded comments
+dotnet_diagnostic.sa1108.severity = warning
+
+# Block statements should not contain embedded regions
+dotnet_diagnostic.sa1109.severity = none
+
+# Opening parenthesis or bracket should be on declaration line
+dotnet_diagnostic.sa1110.severity = warning
+
+# Closing parenthesis should be on line of last parameter
+dotnet_diagnostic.sa1111.severity = warning
+
+# Closing parenthesis should be on line of opening parenthesis
+dotnet_diagnostic.sa1112.severity = warning
+
+# Comma should be on the same line as previous parameter
+dotnet_diagnostic.sa1113.severity = warning
+
+# Parameter list should follow declaration
+dotnet_diagnostic.sa1114.severity = warning
+
+# Parameter should follow comma
+dotnet_diagnostic.sa1115.severity = warning
+
+# Split parameters should start on line after declaration
+dotnet_diagnostic.sa1116.severity = none
+
+# Parameters should be on same line or separate lines
+dotnet_diagnostic.sa1117.severity = warning
+
+# Parameter should not span multiple lines
+dotnet_diagnostic.sa1118.severity = none
+
+# Statement should not use unnecessary parenthesis
+dotnet_diagnostic.sa1119.severity = warning
+
+# Comments should contain text
+dotnet_diagnostic.sa1120.severity = warning
+
+# Use built-in type alias
+dotnet_diagnostic.sa1121.severity = warning
+
+# Use string.Empty for empty strings
+dotnet_diagnostic.sa1122.severity = warning
+
+# Do not place regions within elements
+dotnet_diagnostic.sa1123.severity = warning
+
+# Do not use regions
+dotnet_diagnostic.sa1124.severity = warning
+
+# Use shorthand for nullable types
+dotnet_diagnostic.sa1125.severity = warning
+
+# Prefix calls correctly
+dotnet_diagnostic.sa1126.severity = none
+
+# Generic type constraints should be on their own line
+dotnet_diagnostic.sa1127.severity = warning
+
+# Put constructor initializers on their own line
+dotnet_diagnostic.sa1128.severity = warning
+
+# Do not use default value type constructor
+dotnet_diagnostic.sa1129.severity = warning
+
+# Use lambda syntax
+dotnet_diagnostic.sa1130.severity = warning
+
+# Use readable conditions
+dotnet_diagnostic.sa1131.severity = warning
+
+# Do not combine fields
+dotnet_diagnostic.sa1132.severity = warning
+
+# Do not combine attributes
+dotnet_diagnostic.sa1133.severity = warning
+
+# Attributes should not share line
+dotnet_diagnostic.sa1134.severity = warning
+
+# Using directives should be qualified
+dotnet_diagnostic.sa1135.severity = warning
+
+# Enum values should be on separate lines
+dotnet_diagnostic.sa1136.severity = warning
+
+# Elements should have the same indentation
+dotnet_diagnostic.sa1137.severity = warning
+
+# Use literal suffix notation instead of casting
+dotnet_diagnostic.sa1139.severity = warning
+
+# Using directives should be placed correctly
+dotnet_diagnostic.sa1200.severity = none
+
+# Elements should appear in the correct order
+dotnet_diagnostic.sa1201.severity = warning
+
+# Elements should be ordered by access
+dotnet_diagnostic.sa1202.severity = warning
+
+# Constants should appear before fields
+dotnet_diagnostic.sa1203.severity = warning
+
+# Static elements should appear before instance elements
+dotnet_diagnostic.sa1204.severity = warning
+
+# Partial elements should declare access
+dotnet_diagnostic.sa1205.severity = warning
+
+# Declaration keywords should follow order
+dotnet_diagnostic.sa1206.severity = warning
+
+# Protected should come before internal
+dotnet_diagnostic.sa1207.severity = warning
+
+# System using directives should be placed before other using directives
+dotnet_diagnostic.sa1208.severity = warning
+
+# Using alias directives should be placed after other using directives
+dotnet_diagnostic.sa1209.severity = warning
+
+# Using directives should be ordered alphabetically by namespace
+dotnet_diagnostic.sa1210.severity = warning
+
+# Using alias directives should be ordered alphabetically by alias name
+dotnet_diagnostic.sa1211.severity = warning
+
+# Property accessors should follow order
+dotnet_diagnostic.sa1212.severity = warning
+
+# Event accessors should follow order
+dotnet_diagnostic.sa1213.severity = warning
+
+# Readonly fields should appear before non-readonly fields
+dotnet_diagnostic.sa1214.severity = warning
+
+# Using static directives should be placed at the correct location
+dotnet_diagnostic.sa1216.severity = warning
+
+# Using static directives should be ordered alphabetically
+dotnet_diagnostic.sa1217.severity = warning
+
+# Element should begin with upper-case letter
+dotnet_diagnostic.sa1300.severity = warning
+
+# Element should begin with lower-case letter
+dotnet_diagnostic.sa1301.severity = none
+
+# Interface names should begin with I
+dotnet_diagnostic.sa1302.severity = warning
+
+# Const field names should begin with upper-case letter
+dotnet_diagnostic.sa1303.severity = warning
+
+# Non-private readonly fields should begin with upper-case letter
+dotnet_diagnostic.sa1304.severity = warning
+
+# Field names should not use Hungarian notation
+dotnet_diagnostic.sa1305.severity = none
+
+# Field names should begin with lower-case letter
+dotnet_diagnostic.sa1306.severity = warning
+
+# Accessible fields should begin with upper-case letter
+dotnet_diagnostic.sa1307.severity = warning
+
+# Variable names should not be prefixed
+dotnet_diagnostic.sa1308.severity = warning
+
+# Field names should not begin with underscore
+dotnet_diagnostic.sa1309.severity = none
+
+# Field names should not contain underscore
+dotnet_diagnostic.sa1310.severity = warning
+
+# Static readonly fields should begin with upper-case letter
+dotnet_diagnostic.sa1311.severity = warning
+
+# Variable names should begin with lower-case letter
+dotnet_diagnostic.sa1312.severity = none
+
+# Parameter names should begin with lower-case letter
+dotnet_diagnostic.sa1313.severity = none
+
+# Type parameter names should begin with T
+dotnet_diagnostic.sa1314.severity = warning
+
+# Access modifier should be declared
+dotnet_diagnostic.sa1400.severity = warning
+
+# Fields should be private
+dotnet_diagnostic.sa1401.severity = warning
+
+# File may only contain a single type
+dotnet_diagnostic.sa1402.severity = warning
+
+# File may only contain a single namespace
+dotnet_diagnostic.sa1403.severity = warning
+
+# Code analysis suppression should have justification
+dotnet_diagnostic.sa1404.severity = warning
+
+# Debug.Assert should provide message text
+dotnet_diagnostic.sa1405.severity = warning
+
+# Debug.Fail should provide message text
+dotnet_diagnostic.sa1406.severity = warning
+
+# Arithmetic expressions should declare precedence
+dotnet_diagnostic.sa1407.severity = warning
+
+# Conditional expressions should declare precedence
+dotnet_diagnostic.sa1408.severity = warning
+
+# Remove unnecessary code
+dotnet_diagnostic.sa1409.severity = none
+
+# Remove delegate parenthesis when possible
+dotnet_diagnostic.sa1410.severity = warning
+
+# Attribute constructor should not use unnecessary parenthesis
+dotnet_diagnostic.sa1411.severity = warning
+
+# Store files as UTF-8 with byte order mark
+dotnet_diagnostic.sa1412.severity = none
+
+# Use trailing comma in multi-line initializers
+dotnet_diagnostic.sa1413.severity = warning
+
+# Braces for multi-line statements should not share line
+dotnet_diagnostic.sa1500.severity = none
+
+# Statement should not be on a single line
+dotnet_diagnostic.sa1501.severity = warning
+
+# Element should not be on a single line
+dotnet_diagnostic.sa1502.severity = warning
+
+# Braces should not be omitted
+dotnet_diagnostic.sa1503.severity = warning
+
+# All accessors should be single-line or multi-line
+dotnet_diagnostic.sa1504.severity = warning
+
+# Opening braces should not be followed by blank line
+dotnet_diagnostic.sa1505.severity = warning
+
+# Element documentation headers should not be followed by blank line
+dotnet_diagnostic.sa1506.severity = warning
+
+# Code should not contain multiple blank lines in a row
+dotnet_diagnostic.sa1507.severity = warning
+
+# Closing braces should not be preceded by blank line
+dotnet_diagnostic.sa1508.severity = warning
+
+# Opening braces should not be preceded by blank line
+dotnet_diagnostic.sa1509.severity = warning
+
+# Chained statement blocks should not be preceded by blank line
+dotnet_diagnostic.sa1510.severity = warning
+
+# While-do footer should not be preceded by blank line
+dotnet_diagnostic.sa1511.severity = warning
+
+# Single-line comments should not be followed by blank line
+dotnet_diagnostic.sa1512.severity = warning
+
+# Closing brace should be followed by blank line
+dotnet_diagnostic.sa1513.severity = warning
+
+# Element documentation header should be preceded by blank line
+dotnet_diagnostic.sa1514.severity = warning
+
+# Single-line comment should be preceded by blank line
+dotnet_diagnostic.sa1515.severity = warning
+
+# Elements should be separated by blank line
+dotnet_diagnostic.sa1516.severity = warning
+
+# Code should not contain blank lines at start of file
+dotnet_diagnostic.sa1517.severity = warning
+
+# Use line endings correctly at end of file
+dotnet_diagnostic.sa1518.severity = warning
+
+# Braces should not be omitted from multi-line child statement
+dotnet_diagnostic.sa1519.severity = warning
+
+# Use braces consistently
+dotnet_diagnostic.sa1520.severity = warning
+
+# Elements should be documented
+dotnet_diagnostic.sa1600.severity = warning
+
+# Partial elements should be documented
+dotnet_diagnostic.sa1601.severity = warning
+
+# Enumeration items should be documented
+dotnet_diagnostic.sa1602.severity = warning
+
+# Documentation should contain valid XML
+dotnet_diagnostic.sa1603.severity = none
+
+# Element documentation should have summary
+dotnet_diagnostic.sa1604.severity = warning
+
+# Partial element documentation should have summary
+dotnet_diagnostic.sa1605.severity = warning
+
+# Element documentation should have summary text
+dotnet_diagnostic.sa1606.severity = warning
+
+# Partial element documentation should have summary text
+dotnet_diagnostic.sa1607.severity = warning
+
+# Element documentation should not have default summary
+dotnet_diagnostic.sa1608.severity = warning
+
+# Property documentation should have value
+dotnet_diagnostic.sa1609.severity = none
+
+# Property documentation should have value text
+dotnet_diagnostic.sa1610.severity = warning
+
+# Element parameters should be documented
+dotnet_diagnostic.sa1611.severity = warning
+
+# Element parameter documentation should match element parameters
+dotnet_diagnostic.sa1612.severity = warning
+
+# Element parameter documentation should declare parameter name
+dotnet_diagnostic.sa1613.severity = warning
+
+# Element parameter documentation should have text
+dotnet_diagnostic.sa1614.severity = warning
+
+# Element return value should be documented
+dotnet_diagnostic.sa1615.severity = warning
+
+# Element return value documentation should have text
+dotnet_diagnostic.sa1616.severity = warning
+
+# Void return value should not be documented
+dotnet_diagnostic.sa1617.severity = warning
+
+# Generic type parameters should be documented
+dotnet_diagnostic.sa1618.severity = warning
+
+# Generic type parameters should be documented partial class
+dotnet_diagnostic.sa1619.severity = warning
+
+# Generic type parameter documentation should match type parameters
+dotnet_diagnostic.sa1620.severity = warning
+
+# Generic type parameter documentation should declare parameter name
+dotnet_diagnostic.sa1621.severity = warning
+
+# Generic type parameter documentation should have text
+dotnet_diagnostic.sa1622.severity = warning
+
+# Property summary documentation should match accessors
+dotnet_diagnostic.sa1623.severity = warning
+
+# Property summary documentation should omit accessor with restricted access
+dotnet_diagnostic.sa1624.severity = warning
+
+# Element documentation should not be copied and pasted
+dotnet_diagnostic.sa1625.severity = warning
+
+# Single-line comments should not use documentation style slashes
+dotnet_diagnostic.sa1626.severity = warning
+
+# Documentation text should not be empty
+dotnet_diagnostic.sa1627.severity = warning
+
+# Documentation text should begin with a capital letter
+dotnet_diagnostic.sa1628.severity = none
+
+# Documentation text should end with a period
+dotnet_diagnostic.sa1629.severity = warning
+
+# Documentation text should contain whitespace
+dotnet_diagnostic.sa1630.severity = none
+
+# Documentation should meet character percentage
+dotnet_diagnostic.sa1631.severity = none
+
+# Documentation text should meet minimum character length
+dotnet_diagnostic.sa1632.severity = none
+
+# File should have header
+dotnet_diagnostic.sa1633.severity = none
+
+# File header should show copyright
+dotnet_diagnostic.sa1634.severity = warning
+
+# File header should have copyright text
+dotnet_diagnostic.sa1635.severity = warning
+
+# File header copyright text should match
+dotnet_diagnostic.sa1636.severity = warning
+
+# File header should contain file name
+dotnet_diagnostic.sa1637.severity = warning
+
+# File header file name documentation should match file name
+dotnet_diagnostic.sa1638.severity = warning
+
+# File header should have summary
+dotnet_diagnostic.sa1639.severity = warning
+
+# File header should have valid company text
+dotnet_diagnostic.sa1640.severity = warning
+
+# File header company name text should match
+dotnet_diagnostic.sa1641.severity = warning
+
+# Constructor summary documentation should begin with standard text
+dotnet_diagnostic.sa1642.severity = warning
+
+# Destructor summary documentation should begin with standard text
+dotnet_diagnostic.sa1643.severity = warning
+
+# Documentation headers should not contain blank lines
+dotnet_diagnostic.sa1644.severity = none
+
+# Included documentation file does not exist
+dotnet_diagnostic.sa1645.severity = none
+
+# Included documentation XPath does not exist
+dotnet_diagnostic.sa1646.severity = none
+
+# Include node does not contain valid file and path
+dotnet_diagnostic.sa1647.severity = none
+
+# Inheritdoc should be used with inheriting class
+dotnet_diagnostic.sa1648.severity = warning
+
+# File name should match first type name
+dotnet_diagnostic.sa1649.severity = warning
+
+# Element documentation should be spelled correctly
+dotnet_diagnostic.sa1650.severity = none
+
+# Do not use placeholder elements
+dotnet_diagnostic.sa1651.severity = warning
+
+# Do not prefix local calls with 'this.'
+dotnet_diagnostic.sx1101.severity = warning
+
+# Field names should begin with underscore
+dotnet_diagnostic.sx1309.severity = warning
+
+# Static field names should begin with underscore
+dotnet_diagnostic.sx1309s.severity = none
+
+# Array allocation for params parameter
+dotnet_diagnostic.haa0101.severity = suggestion
+
+# Closure Allocation Source
+dotnet_diagnostic.haa0301.severity = suggestion
+
+# Display class allocation to capture closure
+dotnet_diagnostic.haa0302.severity = suggestion
+
+# Lambda or anonymous method in a generic method allocates a delegate instance
+dotnet_diagnostic.haa0303.severity = suggestion
+
+# Possible allocation of reference type enumerator
+dotnet_diagnostic.haa0401.severity = suggestion
+
+# Value type to reference type conversion causing boxing allocation
+dotnet_diagnostic.haa0601.severity = suggestion
+
+# Delegate allocation from a method group
+dotnet_diagnostic.haa0603.severity = suggestion
+
+# Use Task.ConfigureAwait(false)
+dotnet_diagnostic.ma0004.severity = none
+
+# Consider calling ConfigureAwait on the awaited task
+dotnet_diagnostic.ca2007.severity = none
+
+# Add cases for missing enum member.
+dotnet_diagnostic.ss018.severity = suggestion
+
+# Switch should have default label.
+dotnet_diagnostic.ss019.severity = suggestion
+
+# Hidden struct copy operation
+dotnet_diagnostic.eps06.severity = suggestion
+
+# Don't ignore the returned value
+dotnet_diagnostic.gu0011.severity = suggestion
+
+# Observe result of async calls
+dotnet_diagnostic.vsthrd110.severity = suggestion
+
+# Classes should not be empty
+dotnet_diagnostic.s2094.severity = suggestion
+
+# Dispose previous before re-assigning
+dotnet_diagnostic.idisp003.severity = suggestion
+
+# Don't ignore created IDisposable
+dotnet_diagnostic.idisp004.severity = suggestion
+
+# Backing member for DependencyProperty should have standard documentation text
+dotnet_diagnostic.wpf0060.severity = warning

@@ -9,8 +9,8 @@ namespace VacuumBreather.Mvvm.Wpf;
 public static class CloseDialog
 {
     /// <summary>
-    ///     Result property. This is an attached property. CloseDialog defines the Result, so that it
-    ///     can be set on any <see cref="Button" /> that is used to close a dialog with that result.
+    ///     Result property. This is an attached property. CloseDialog defines the Result, so that it can be set on any
+    ///     <see cref="Button"/> that is used to close a dialog with that result.
     /// </summary>
     public static readonly DependencyProperty ResultProperty = DependencyProperty.RegisterAttached(
         PropertyNameHelper.GetName(nameof(ResultProperty)),

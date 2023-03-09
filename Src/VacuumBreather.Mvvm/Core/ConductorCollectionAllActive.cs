@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Threading;
@@ -7,7 +8,7 @@ using Microsoft.Extensions.Logging;
 
 namespace VacuumBreather.Mvvm.Core;
 
-/// <summary>Contains implementations of <see cref="IConductor" /> that hold on many items.</summary>
+/// <summary>Contains implementations of <see cref="IConductor"/> that hold on many items.</summary>
 /// <typeparam name="T">The type that is being conducted.</typeparam>
 public class ConductorCollectionAllActive<T> : ConductorBase<T>, ICollectionConductor<T>
     where T : class
@@ -18,11 +19,11 @@ public class ConductorCollectionAllActive<T> : ConductorBase<T>, ICollectionCond
 
     /// <summary>
     ///     Initializes a new instance of the
-    ///     <see cref="VacuumBreather.Mvvm.Core.ConductorCollectionAllActive{T}" /> class.
+    ///     <see cref="VacuumBreather.Mvvm.Core.ConductorCollectionAllActive{T}"/> class.
     /// </summary>
     /// <param name="conductPublicItems">
-    ///     If set to <see langword="true" /> public items that are properties of this
-    ///     class will be conducted.
+    ///     If set to <see langword="true"/> public items that are properties of this class will
+    ///     be conducted.
     /// </param>
     public ConductorCollectionAllActive(bool conductPublicItems)
         : this()
@@ -32,7 +33,7 @@ public class ConductorCollectionAllActive<T> : ConductorBase<T>, ICollectionCond
 
     /// <summary>
     ///     Initializes a new instance of the
-    ///     <see cref="VacuumBreather.Mvvm.Core.ConductorCollectionAllActive{T}" /> class.
+    ///     <see cref="VacuumBreather.Mvvm.Core.ConductorCollectionAllActive{T}"/> class.
     /// </summary>
     public ConductorCollectionAllActive()
     {
@@ -42,13 +43,13 @@ public class ConductorCollectionAllActive<T> : ConductorBase<T>, ICollectionCond
     /// <summary>Gets the items that are currently being conducted.</summary>
     public IBindableCollection<T> Items => _items;
 
-    /// <inheritdoc />
+    /// <inheritdoc/>
     public sealed override IEnumerable<T> GetChildren()
     {
         return _items;
     }
 
-    /// <inheritdoc />
+    /// <inheritdoc/>
     public override async ValueTask ActivateItemAsync(T? item, CancellationToken cancellationToken = default)
     {
         if (item is null)
@@ -65,26 +66,25 @@ public class ConductorCollectionAllActive<T> : ConductorBase<T>, ICollectionCond
 
         if (IsActive)
         {
-            await ScreenExtensions.TryActivateAsync(item, cancellationToken).ConfigureAwait(true);
+            await ScreenExtensions.TryActivateAsync(item, cancellationToken);
         }
 
-        OnActivationProcessed(item, true);
+        OnActivationProcessed(item, success: true);
     }
 
-    /// <inheritdoc />
+    /// <inheritdoc/>
     public override async ValueTask<bool> CanCloseAsync(CancellationToken cancellationToken = default)
     {
-        ICloseResult<T> closeResult = await CloseStrategy.ExecuteAsync(_items.ToList(), cancellationToken)
-                                                         .ConfigureAwait(true);
+        ICloseResult<T> closeResult = await CloseStrategy.ExecuteAsync(_items.ToList(), cancellationToken);
 
         if (closeResult.CloseCanOccur || !closeResult.Children.Any())
         {
             return closeResult.CloseCanOccur;
         }
 
-        foreach (IDeactivate deactivate in closeResult.Children.OfType<IDeactivate>())
+        foreach (var deactivate in closeResult.Children.OfType<IDeactivate>())
         {
-            await deactivate.DeactivateAsync(true, cancellationToken).ConfigureAwait(true);
+            await deactivate.DeactivateAsync(close: true, cancellationToken);
         }
 
         _items.RemoveRange(closeResult.Children);
@@ -92,15 +92,13 @@ public class ConductorCollectionAllActive<T> : ConductorBase<T>, ICollectionCond
         return closeResult.CloseCanOccur;
     }
 
-    /// <inheritdoc />
-    public override async ValueTask DeactivateItemAsync(T item,
-                                                        bool close,
-                                                        CancellationToken cancellationToken = default)
+    /// <inheritdoc/>
+    public override ValueTask DeactivateItemAsync(T item, bool close, CancellationToken cancellationToken = default)
     {
-        await this.DeactivateItemAsync(item, close, CloseItemCoreAsync, cancellationToken).ConfigureAwait(true);
+        return this.DeactivateItemAsync(item, close, CloseItemCoreAsync, cancellationToken);
     }
 
-    /// <inheritdoc />
+    /// <inheritdoc/>
     protected override T? EnsureItem(T? newItem)
     {
         if (newItem is null)
@@ -108,7 +106,7 @@ public class ConductorCollectionAllActive<T> : ConductorBase<T>, ICollectionCond
             return base.EnsureItem(newItem);
         }
 
-        int index = _items.IndexOf(newItem);
+        var index = _items.IndexOf(newItem);
 
         if (index == -1)
         {
@@ -122,21 +120,21 @@ public class ConductorCollectionAllActive<T> : ConductorBase<T>, ICollectionCond
         return base.EnsureItem(newItem);
     }
 
-    /// <inheritdoc />
+    /// <inheritdoc/>
     protected override async ValueTask OnActivateAsync(CancellationToken cancellationToken)
     {
-        foreach (IActivate activate in _items.OfType<IActivate>())
+        foreach (var activate in _items.OfType<IActivate>())
         {
-            await activate.ActivateAsync(cancellationToken).ConfigureAwait(true);
+            await activate.ActivateAsync(cancellationToken);
         }
     }
 
-    /// <inheritdoc />
+    /// <inheritdoc/>
     protected override async ValueTask OnDeactivateAsync(bool close, CancellationToken cancellationToken)
     {
-        foreach (IDeactivate deactivate in _items.OfType<IDeactivate>())
+        foreach (var deactivate in _items.OfType<IDeactivate>())
         {
-            await deactivate.DeactivateAsync(close, cancellationToken).ConfigureAwait(true);
+            await deactivate.DeactivateAsync(close, cancellationToken);
         }
 
         if (close)
@@ -145,7 +143,7 @@ public class ConductorCollectionAllActive<T> : ConductorBase<T>, ICollectionCond
         }
     }
 
-    /// <inheritdoc />
+    /// <inheritdoc/>
     protected override async ValueTask OnInitializeAsync(CancellationToken cancellationToken)
     {
         if (_conductPublicItems)
@@ -154,10 +152,10 @@ public class ConductorCollectionAllActive<T> : ConductorBase<T>, ICollectionCond
                               .GetTypeInfo()
                               .DeclaredProperties
                               .Where(propertyInfo =>
-                                         (propertyInfo.Name != nameof(Parent)) &&
+                                         !string.Equals(propertyInfo.Name, nameof(Parent), StringComparison.Ordinal) &&
                                          typeof(T).GetTypeInfo()
                                                   .IsAssignableFrom(propertyInfo.PropertyType.GetTypeInfo()))
-                              .Select(propertyInfo => propertyInfo.GetValue(this, null))
+                              .Select(propertyInfo => propertyInfo.GetValue(this, index: null))
                               .Cast<T>()
                               .ToList();
 
@@ -165,19 +163,18 @@ public class ConductorCollectionAllActive<T> : ConductorBase<T>, ICollectionCond
             {
                 foreach (var item in publicItems)
                 {
-                    Logger.LogDebug("Will conduct public item: {Item}", item);
+                    Logger.LogDebug(message: "Will conduct public item: {Item}", item);
                 }
             }
 
             await Task.WhenAll(publicItems.Select(item => ActivateItemAsync(item, cancellationToken))
-                                          .Select(t => t.AsTask()))
-                      .ConfigureAwait(true);
+                                          .Select(t => t.AsTask()));
         }
     }
 
     private async ValueTask CloseItemCoreAsync(T item, CancellationToken cancellationToken = default)
     {
-        await ScreenExtensions.TryDeactivateAsync(item, true, cancellationToken).ConfigureAwait(true);
+        await ScreenExtensions.TryDeactivateAsync(item, close: true, cancellationToken);
 
         _items.Remove(item);
     }

@@ -8,40 +8,38 @@ using VacuumBreather.Mvvm.Core;
 namespace VacuumBreather.Mvvm.Wpf;
 
 /// <summary>A conductor for dialogs.</summary>
-public class DialogConductor : Screen, IDialogService
+public abstract class DialogConductor : Screen, IDialogService
 {
     private readonly ConductorCollectionOneActive<DialogScreen> _internalConductor = new();
 
-    /// <summary>
-    ///     Initializes a new instance of the <see cref="DialogConductor" /> class.
-    /// </summary>
-    public DialogConductor()
+    /// <summary>Initializes a new instance of the <see cref="DialogConductor"/> class.</summary>
+    protected DialogConductor()
     {
         DisplayName = GetType().Name;
         _internalConductor.PropertyChanged += OnInternalConductorPropertyChanged;
     }
 
-    /// <inheritdoc />
+    /// <inheritdoc/>
     public DialogScreen? ActiveItem => _internalConductor.ActiveItem;
 
-    /// <inheritdoc />
+    /// <inheritdoc/>
     object? IHaveReadOnlyActiveItem.ActiveItem => ActiveItem;
 
-    /// <summary>Shows the specified <see cref="DialogScreen" /> as a dialog.</summary>
+    /// <summary>Shows the specified <see cref="DialogScreen"/> as a dialog.</summary>
     /// <param name="dialog">The dialog to show.</param>
     /// <param name="cancellationToken">
-    ///     (Optional) A cancellation token that can be used by other objects
-    ///     or threads to receive notice of cancellation.
+    ///     (Optional) A cancellation token that can be used by other objects or threads to receive
+    ///     notice of cancellation.
     /// </param>
     /// <returns>
-    ///     A <see cref="ValueTask" /> that represents the asynchronous save operation.
-    ///     The <see cref="ValueTask" /> result contains the dialog result.
+    ///     A <see cref="ValueTask"/> that represents the asynchronous save operation. The <see cref="ValueTask"/> result
+    ///     contains the dialog result.
     /// </returns>
     /// <exception cref="InvalidOperationException">
-    ///     Attempting to open a dialog with the same instance multiple times simultaneously.
+    ///     Attempting to open a dialog with the same instance multiple times
+    ///     simultaneously.
     /// </exception>
-    public virtual async ValueTask<bool?> ShowDialogAsync(DialogScreen dialog,
-                                                          CancellationToken cancellationToken = default)
+    public async ValueTask<bool?> ShowDialogAsync(DialogScreen dialog, CancellationToken cancellationToken = default)
     {
         Guard.IsFalse(_internalConductor.Items.Contains(dialog),
                       nameof(dialog),
@@ -49,26 +47,36 @@ public class DialogConductor : Screen, IDialogService
 
         if (!_internalConductor.IsActive)
         {
-            await _internalConductor.ActivateAsync(cancellationToken).ConfigureAwait(true);
+            await _internalConductor.ActivateAsync(cancellationToken);
         }
 
-        await _internalConductor.ActivateItemAsync(dialog, cancellationToken).ConfigureAwait(true);
+        await _internalConductor.ActivateItemAsync(dialog, cancellationToken);
 
-        return await dialog.GetDialogResultAsync().ConfigureAwait(true);
+        return await dialog.GetDialogResultAsync();
     }
 
-    /// <inheritdoc />
+    /// <inheritdoc/>
+    public abstract ValueTask<string?> ShowOpenFileDialogAsync(FileDialogOptions options,
+                                                               CancellationToken cancellationToken = default);
+
+    /// <inheritdoc/>
+    public abstract ValueTask<string?> ShowSaveFileDialogAsync(FileDialogOptions options,
+                                                               CancellationToken cancellationToken = default);
+
+    /// <inheritdoc/>
     protected override async ValueTask OnDeactivateAsync(bool close, CancellationToken cancellationToken)
     {
         if (close)
         {
-            await _internalConductor.DeactivateAsync(close, cancellationToken).ConfigureAwait(true);
+            await _internalConductor.DeactivateAsync(close, cancellationToken);
         }
     }
 
     private void OnInternalConductorPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(ConductorCollectionOneActive<DialogScreen>.ActiveItem))
+        if (string.Equals(e.PropertyName,
+                          nameof(ConductorCollectionOneActive<DialogScreen>.ActiveItem),
+                          StringComparison.Ordinal))
         {
             OnPropertyChanged(nameof(ActiveItem));
         }

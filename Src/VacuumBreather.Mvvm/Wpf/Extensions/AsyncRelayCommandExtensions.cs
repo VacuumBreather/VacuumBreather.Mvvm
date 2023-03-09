@@ -5,17 +5,17 @@ using VacuumBreather.Mvvm.Core;
 
 namespace VacuumBreather.Mvvm.Wpf;
 
-/// <summary>Provides extension methods for the <see cref="AsyncRelayCommand" /> type.</summary>
+/// <summary>Provides extension methods for the <see cref="AsyncRelayCommand"/> type.</summary>
 [PublicAPI]
 public static class AsyncRelayCommandExtensions
 {
     /// <summary>
-    ///     Causes this command to raise its <see cref="System.Windows.Input.ICommand.CanExecuteChanged" /> event whenever
-    ///     the specified <see cref="INotifyPropertyChanged" /> instance raises its
-    ///     <see cref="INotifyPropertyChanged.PropertyChanged" /> event.
+    ///     Causes this command to raise its <see cref="System.Windows.Input.ICommand.CanExecuteChanged"/> event whenever
+    ///     the specified <see cref="INotifyPropertyChanged"/> instance raises its
+    ///     <see cref="INotifyPropertyChanged.PropertyChanged"/> event.
     /// </summary>
     /// <param name="command">The command.</param>
-    /// <param name="notifier">The <see cref="INotifyPropertyChanged" /> implementing object. </param>
+    /// <param name="notifier">The <see cref="INotifyPropertyChanged"/> implementing object. </param>
     /// <returns>The command that was passed in for chaining.</returns>
     public static AsyncRelayCommand RefreshWith(this AsyncRelayCommand command, INotifyPropertyChanged notifier)
     {
@@ -26,12 +26,11 @@ public static class AsyncRelayCommandExtensions
     }
 
     /// <summary>
-    ///     Causes this command to raise its <see cref="System.Windows.Input.ICommand.CanExecuteChanged" /> event whenever the
-    ///     specified
-    ///     <see cref="AsyncGuard" /> raises its <see cref="AsyncGuard.IsOngoingChanged" /> event.
+    ///     Causes this command to raise its <see cref="System.Windows.Input.ICommand.CanExecuteChanged"/> event whenever
+    ///     the specified <see cref="AsyncGuard"/> raises its <see cref="AsyncGuard.IsOngoingChanged"/> event.
     /// </summary>
     /// <param name="command">The command that should be refreshed.</param>
-    /// <param name="guard">The <see cref="AsyncGuard" /> to subscribe to.</param>
+    /// <param name="guard">The <see cref="AsyncGuard"/> to subscribe to.</param>
     /// <returns>The command that was passed in for chaining.</returns>
     public static AsyncRelayCommand RefreshWith(this AsyncRelayCommand command, AsyncGuard guard)
     {

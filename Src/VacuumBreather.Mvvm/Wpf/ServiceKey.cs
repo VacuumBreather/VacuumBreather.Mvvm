@@ -9,18 +9,12 @@ namespace VacuumBreather.Mvvm.Wpf;
 /// </summary>
 public enum ServiceKey
 {
-    /// <summary>
-    ///     The key for the main <see cref="Window" />.
-    /// </summary>
+    /// <summary>The key for the main <see cref="Window"/>.</summary>
     MainView,
 
-    /// <summary>
-    ///     The key for the main view-model <see cref="BindableObject" />.
-    /// </summary>
+    /// <summary>The key for the main view-model <see cref="BindableObject"/>.</summary>
     MainViewModel,
 
-    /// <summary>
-    ///     The key for the <see cref="ResourceDictionary" /> containing the theme resources.
-    /// </summary>
+    /// <summary>The key for the <see cref="ResourceDictionary"/> containing the theme resources.</summary>
     ThemeResources,
 }

@@ -6,7 +6,7 @@ namespace VacuumBreather.Mvvm.Core;
 /// <typeparam name="T">The type of the children of the instance.</typeparam>
 public class CloseResult<T> : ICloseResult<T>
 {
-    /// <summary>Initializes a new instance of the <see cref="CloseResult{T}" /> class.</summary>
+    /// <summary>Initializes a new instance of the <see cref="CloseResult{T}"/> class.</summary>
     /// <param name="closeCanOccur">Whether of not a close operation should occur.</param>
     /// <param name="children">The children of the instance that can be closed.</param>
     public CloseResult(bool closeCanOccur, IEnumerable<T> children)

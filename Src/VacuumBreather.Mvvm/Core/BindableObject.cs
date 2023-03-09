@@ -9,27 +9,25 @@ using Microsoft.Extensions.Logging.Abstractions;
 
 namespace VacuumBreather.Mvvm.Core;
 
-/// <summary>
-///     Notifying base class for view models.
-/// </summary>
-/// <seealso cref="VacuumBreather.Mvvm.Core.IBindableObject" />
-/// <seealso cref="System.ComponentModel.INotifyPropertyChanging" />
+/// <summary>Notifying base class for view models.</summary>
+/// <seealso cref="VacuumBreather.Mvvm.Core.IBindableObject"/>
+/// <seealso cref="System.ComponentModel.INotifyPropertyChanging"/>
 [PublicAPI]
 public abstract class BindableObject : IBindableObject, INotifyPropertyChanging
 {
     private int _suspensionCount;
     private ILogger? _logger;
 
-    /// <inheritdoc />
+    /// <inheritdoc/>
     public event PropertyChangedEventHandler? PropertyChanged;
 
-    /// <inheritdoc />
+    /// <inheritdoc/>
     public event PropertyChangingEventHandler? PropertyChanging;
 
-    /// <inheritdoc />
+    /// <inheritdoc/>
     public bool IsNotifying => _suspensionCount == 0;
 
-    /// <summary>Gets or sets the <see cref="ILogger" /> for this class.</summary>
+    /// <summary>Gets or sets the <see cref="ILogger"/> for this class.</summary>
     protected ILogger Logger
     {
         get => _logger ?? NullLogger.Instance;
@@ -61,7 +59,7 @@ public abstract class BindableObject : IBindableObject, INotifyPropertyChanging
     /// <param name="newValue">The property's value after the change occurred.</param>
     /// <param name="propertyName">The name of the property that changed.</param>
     /// <returns>
-    ///     <see langword="true" /> if the PropertyChanged event has been raised, otherwise, <see langword="false" />. The
+    ///     <see langword="true"/> if the PropertyChanged event has been raised, otherwise, <see langword="false"/>. The
     ///     event is not raised if the old value is equal to the new value.
     /// </returns>
     protected virtual bool SetProperty<T>(ref T field, T newValue, [CallerMemberName] string? propertyName = null)

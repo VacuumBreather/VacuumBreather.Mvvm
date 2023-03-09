@@ -11,7 +11,7 @@ public sealed class DisposableAction : IDisposable
     private readonly Action _action;
     private bool _isDisposed;
 
-    /// <summary>Initializes a new instance of the <see cref="DisposableAction" /> class.</summary>
+    /// <summary>Initializes a new instance of the <see cref="DisposableAction"/> class.</summary>
     /// <param name="action">The action to execute on dispose.</param>
     public DisposableAction(Action action)
     {

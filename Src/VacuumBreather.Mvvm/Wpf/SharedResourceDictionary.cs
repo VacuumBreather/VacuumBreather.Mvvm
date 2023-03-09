@@ -1,5 +1,4 @@
 using System;
-using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
@@ -9,13 +8,11 @@ using JetBrains.Annotations;
 
 namespace VacuumBreather.Mvvm.Wpf;
 
-/// <summary>
-///     A ResourceDictionary that ensures that a source is only loaded once and otherwise retrieved from a cache.
-/// </summary>
-/// <seealso cref="System.Windows.ResourceDictionary" />
+/// <summary>A ResourceDictionary that ensures that a source is only loaded once and otherwise retrieved from a cache.</summary>
+/// <seealso cref="System.Windows.ResourceDictionary"/>
 [PublicAPI]
-[SuppressMessage("Design",
-                 "CA1010:Generic interface should also be implemented",
+[SuppressMessage(category: "Design",
+                 checkId: "CA1010:Generic interface should also be implemented",
                  Justification =
                      "It is a special kind of ResourceDictionary. The additional interfaces are not required.")]
 public sealed class SharedResourceDictionary : ResourceDictionary
@@ -26,12 +23,8 @@ public sealed class SharedResourceDictionary : ResourceDictionary
 
     private Entry? _entry;
 
-    /// <summary>
-    ///     Gets or sets the source.
-    /// </summary>
-    /// <value>
-    ///     The source.
-    /// </value>
+    /// <summary>Gets or sets the source.</summary>
+    /// <value>The source.</value>
     public new Uri? Source
     {
         get => _entry?.SourceResourceDictionary.Source;
@@ -96,13 +89,9 @@ public sealed class SharedResourceDictionary : ResourceDictionary
         }
     }
 
-    private static IDictionary CachedDictionaries => ResourceDictionaries;
-
     private bool IsFirstSourceReference => ReferenceEquals(_entry?.FirstReferencingResourceDictionary, this);
 
-    /// <summary>
-    ///     Tries to remove a resources by <see cref="Uri" /> from the cache, if there are no references.
-    /// </summary>
+    /// <summary>Tries to remove a resources by <see cref="Uri"/> from the cache, if there are no references.</summary>
     /// <param name="source">The source.</param>
     /// <returns><c>true</c>, if the item could be removed, otherwise <c>false</c>.</returns>
     public static bool TryRemoveFromCache(Uri source)
@@ -130,18 +119,18 @@ public sealed class SharedResourceDictionary : ResourceDictionary
 
     private sealed class Entry
     {
-        public Entry(ResourceDictionary sourceResourceDictionary,
-                     SharedResourceDictionary firstReferencingResourceDictionary)
+        internal Entry(ResourceDictionary sourceResourceDictionary,
+                       SharedResourceDictionary firstReferencingResourceDictionary)
         {
             SourceResourceDictionary = sourceResourceDictionary;
             FirstReferencingResourceDictionary = firstReferencingResourceDictionary;
             ReferencingResourceDictionaries = new List<SharedResourceDictionary> { firstReferencingResourceDictionary };
         }
 
-        public SharedResourceDictionary FirstReferencingResourceDictionary { get; set; }
+        internal SharedResourceDictionary FirstReferencingResourceDictionary { get; set; }
 
-        public List<SharedResourceDictionary> ReferencingResourceDictionaries { get; }
+        internal List<SharedResourceDictionary> ReferencingResourceDictionaries { get; }
 
-        public ResourceDictionary SourceResourceDictionary { get; }
+        internal ResourceDictionary SourceResourceDictionary { get; }
     }
 }

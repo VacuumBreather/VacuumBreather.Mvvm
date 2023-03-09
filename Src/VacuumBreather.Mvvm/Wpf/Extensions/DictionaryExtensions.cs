@@ -2,7 +2,7 @@
 
 namespace VacuumBreather.Mvvm.Wpf;
 
-/// <summary>Provides extension methods for the <see cref="IDictionary{TKey,TValue}" /> type.</summary>
+/// <summary>Provides extension methods for the <see cref="IDictionary{TKey,TValue}"/> type.</summary>
 public static class DictionaryExtensions
 {
     /// <summary>Gets the value for a key or default(TValue) if the key does not exist.</summary>
@@ -13,6 +13,6 @@ public static class DictionaryExtensions
     /// <returns>The value if the key exists in the dictionary; default(TValue) otherwise.</returns>
     public static TValue? GetValueOrDefault<TKey, TValue>(this IDictionary<TKey, TValue> dictionary, TKey key)
     {
-        return dictionary.TryGetValue(key, out TValue? result) ? result : default;
+        return dictionary.TryGetValue(key, out var result) ? result : default;
     }
 }

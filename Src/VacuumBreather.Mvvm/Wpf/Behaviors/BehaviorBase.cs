@@ -5,12 +5,12 @@ using Microsoft.Xaml.Behaviors;
 namespace VacuumBreather.Mvvm.Wpf.Behaviors;
 
 /// <summary>
-///     Base class for behaviors. Compared to <see cref="Microsoft.Xaml.Behaviors.Behavior{T}" /> it provides custom setup
-///     and cleanup methods to avoid possible memory leaks resulting
-///     from event subscriptions to objects other than the element the behavior is attached to.
+///     Base class for behaviors. Compared to <see cref="Microsoft.Xaml.Behaviors.Behavior{T}"/> it provides custom
+///     setup and cleanup methods to avoid possible memory leaks resulting from event subscriptions to objects other than
+///     the element the behavior is attached to.
 /// </summary>
 /// <typeparam name="T">The type of element this behavior can be attached to.</typeparam>
-/// <seealso cref="Microsoft.Xaml.Behaviors.Behavior{T}" />
+/// <seealso cref="Microsoft.Xaml.Behaviors.Behavior{T}"/>
 public abstract class BehaviorBase<T> : Behavior<T>
     where T : FrameworkElement
 {
@@ -18,23 +18,17 @@ public abstract class BehaviorBase<T> : Behavior<T>
     private bool _isHookedUp;
     private WeakReference? _weakTarget;
 
-    /// <summary>
-    ///     Override to provide any cleanup logic for this behavior.
-    /// </summary>
+    /// <summary>Override to provide any cleanup logic for this behavior.</summary>
     protected virtual void OnCleanup()
     {
     }
 
-    /// <summary>
-    ///     Override to provide any setup logic for this behavior.
-    /// </summary>
+    /// <summary>Override to provide any setup logic for this behavior.</summary>
     protected virtual void OnSetup()
     {
     }
 
-    /// <summary>
-    ///     Called when the current <see cref="Microsoft.Xaml.Behaviors.Behavior{T}" /> object is modified.
-    /// </summary>
+    /// <summary>Called when the current <see cref="Microsoft.Xaml.Behaviors.Behavior{T}"/> object is modified.</summary>
     protected override void OnChanged()
     {
         var target = AssociatedObject;

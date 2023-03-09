@@ -3,15 +3,12 @@
 namespace VacuumBreather.Mvvm.Core;
 
 /// <summary>
-///     Event arguments for the <see cref="IConductor.ActivationProcessed" /> event. Contains
-///     details about the success or failure of an item's activation through an
-///     <see cref="IConductor" />.
+///     Event arguments for the <see cref="IConductor.ActivationProcessed"/> event. Contains details about the success
+///     or failure of an item's activation through an <see cref="IConductor"/>.
 /// </summary>
 public class ActivationProcessedEventArgs : EventArgs
 {
-    /// <summary>
-    ///     Initializes a new instance of the <see cref="ActivationProcessedEventArgs" /> class.
-    /// </summary>
+    /// <summary>Initializes a new instance of the <see cref="ActivationProcessedEventArgs"/> class.</summary>
     /// <param name="item">The item whose activation was processed.</param>
     /// <param name="success">A value indicating whether the activation was a success.</param>
     public ActivationProcessedEventArgs(object item, bool success)
@@ -24,6 +21,6 @@ public class ActivationProcessedEventArgs : EventArgs
     public object Item { get; }
 
     /// <summary>Gets a value indicating whether the activation was a success.</summary>
-    /// <value><see langword="true" /> if success; otherwise, <see langword="false" />.</value>
+    /// <value><see langword="true"/> if success; otherwise, <see langword="false"/>.</value>
     public bool Success { get; }
 }
