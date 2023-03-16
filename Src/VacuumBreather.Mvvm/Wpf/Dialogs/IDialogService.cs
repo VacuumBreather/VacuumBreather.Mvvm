@@ -1,12 +1,17 @@
 ﻿using System.Threading;
 using System.Threading.Tasks;
+using JetBrains.Annotations;
 using VacuumBreather.Mvvm.Core;
 
-namespace VacuumBreather.Mvvm.Wpf;
+namespace VacuumBreather.Mvvm.Wpf.Dialogs;
 
 /// <summary>Interface for a service for opening various dialogs and awaiting their results.</summary>
+[PublicAPI]
 public interface IDialogService : IHaveReadOnlyActiveItem<DialogScreen>, IScreen
 {
+    /// <summary>Gets the items that are currently being conducted.</summary>
+    IBindableCollection<DialogScreen> Items { get; }
+
     /// <summary>Shows the specified <see cref="DialogScreen"/> as a dialog.</summary>
     /// <param name="dialog">The dialog to show.</param>
     /// <param name="cancellationToken">
@@ -14,7 +19,7 @@ public interface IDialogService : IHaveReadOnlyActiveItem<DialogScreen>, IScreen
     ///     notice of cancellation.
     /// </param>
     /// <returns>A ValueTask that represents the asynchronous save operation. The ValueTask result contains the dialog result.</returns>
-    ValueTask<bool?> ShowDialogAsync(DialogScreen dialog, CancellationToken cancellationToken = default);
+    ValueTask<DialogResult> ShowDialogAsync(DialogScreen dialog, CancellationToken cancellationToken = default);
 
     /// <summary>Shows a dialog to open a file and returns the user selected filename.</summary>
     /// <param name="options">The options configuring the file dialog.</param>

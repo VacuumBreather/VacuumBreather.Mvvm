@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Windows;
+using JetBrains.Annotations;
 using Microsoft.Xaml.Behaviors;
 
 namespace VacuumBreather.Mvvm.Wpf.Behaviors;
@@ -11,12 +12,29 @@ namespace VacuumBreather.Mvvm.Wpf.Behaviors;
 /// </summary>
 /// <typeparam name="T">The type of element this behavior can be attached to.</typeparam>
 /// <seealso cref="Microsoft.Xaml.Behaviors.Behavior{T}"/>
+[PublicAPI]
 public abstract class BehaviorBase<T> : Behavior<T>
     where T : FrameworkElement
 {
-    private bool _isSetup = true;
+    private bool _isSetup;
     private bool _isHookedUp;
     private WeakReference? _weakTarget;
+
+    /// <summary>
+    ///     Override to provide any logic when the object to which this <see cref="BehaviorBase{T}"/> is attached to is
+    ///     loaded.
+    /// </summary>
+    protected virtual void OnAssociatedObjectLoaded()
+    {
+    }
+
+    /// <summary>
+    ///     Override to provide any logic when the object to which this <see cref="BehaviorBase{T}"/> is attached to is
+    ///     unloaded.
+    /// </summary>
+    protected virtual void OnAssociatedObjectUnloaded()
+    {
+    }
 
     /// <summary>Override to provide any cleanup logic for this behavior.</summary>
     protected virtual void OnCleanup()
@@ -73,10 +91,12 @@ public abstract class BehaviorBase<T> : Behavior<T>
     private void OnTargetLoaded(object sender, RoutedEventArgs e)
     {
         SetupBehavior();
+        OnAssociatedObjectLoaded();
     }
 
     private void OnTargetUnloaded(object sender, RoutedEventArgs e)
     {
+        OnAssociatedObjectUnloaded();
         CleanupBehavior();
     }
 

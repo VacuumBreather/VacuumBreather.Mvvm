@@ -93,7 +93,7 @@ public sealed class SharedResourceDictionary : ResourceDictionary
 
     /// <summary>Tries to remove a resources by <see cref="Uri"/> from the cache, if there are no references.</summary>
     /// <param name="source">The source.</param>
-    /// <returns><c>true</c>, if the item could be removed, otherwise <c>false</c>.</returns>
+    /// <returns><see langword="true"/>, if the item could be removed, otherwise <see langword="false"/>.</returns>
     public static bool TryRemoveFromCache(Uri source)
     {
         if (ResourceDictionaries.TryGetValue(source, out var entry))

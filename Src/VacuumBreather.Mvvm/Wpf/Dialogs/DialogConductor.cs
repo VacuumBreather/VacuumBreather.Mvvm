@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 using CommunityToolkit.Diagnostics;
 using VacuumBreather.Mvvm.Core;
 
-namespace VacuumBreather.Mvvm.Wpf;
+namespace VacuumBreather.Mvvm.Wpf.Dialogs;
 
 /// <summary>A conductor for dialogs.</summary>
 public abstract class DialogConductor : Screen, IDialogService
@@ -21,6 +21,9 @@ public abstract class DialogConductor : Screen, IDialogService
 
     /// <inheritdoc/>
     public DialogScreen? ActiveItem => _internalConductor.ActiveItem;
+
+    /// <inheritdoc/>
+    public IBindableCollection<DialogScreen> Items => _internalConductor.Items;
 
     /// <inheritdoc/>
     object? IHaveReadOnlyActiveItem.ActiveItem => ActiveItem;
@@ -39,7 +42,8 @@ public abstract class DialogConductor : Screen, IDialogService
     ///     Attempting to open a dialog with the same instance multiple times
     ///     simultaneously.
     /// </exception>
-    public async ValueTask<bool?> ShowDialogAsync(DialogScreen dialog, CancellationToken cancellationToken = default)
+    public async ValueTask<DialogResult> ShowDialogAsync(DialogScreen dialog,
+                                                         CancellationToken cancellationToken = default)
     {
         Guard.IsFalse(_internalConductor.Items.Contains(dialog),
                       nameof(dialog),

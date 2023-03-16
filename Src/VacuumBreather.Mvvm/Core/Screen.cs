@@ -86,8 +86,7 @@ public abstract class Screen : ViewAware, IScreen, IChild, IHaveAsynchronousOper
     }
 
     /// <inheritdoc/>
-    public virtual async ValueTask TryCloseAsync(bool? dialogResult = null,
-                                                 CancellationToken cancellationToken = default)
+    public virtual async ValueTask TryCloseAsync(CancellationToken cancellationToken = default)
     {
         if (Parent is IConductor conductor)
         {

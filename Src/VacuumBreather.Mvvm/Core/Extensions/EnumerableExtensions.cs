@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 
 namespace VacuumBreather.Mvvm.Core;
@@ -14,10 +13,6 @@ public static class EnumerableExtensions
     /// <param name="source">An <see cref="IEnumerable{T}"/> to aggregate over.</param>
     /// <param name="seed">The initial accumulator value.</param>
     /// <param name="func">An accumulator function to be invoked on each element.</param>
-    [SuppressMessage(category: "Performance",
-                     checkId: "CA1806:Do not ignore method results",
-                     Justification =
-                         "The side effect is implied. This function returns void, so it cannot be used in the middle of a query.")]
     public static void AggregateForEach<TSource, TAccumulate>(this IEnumerable<TSource> source,
                                                               TAccumulate seed,
                                                               Func<TAccumulate, TSource, TAccumulate> func)
@@ -35,5 +30,15 @@ public static class EnumerableExtensions
         {
             action(item);
         }
+    }
+
+    /// <summary>Returns every element of the sequence that is not null.</summary>
+    /// <typeparam name="T">The type of the elements in the sequence.</typeparam>
+    /// <param name="source">The source sequence.</param>
+    /// <returns>A sequence containing every element of the initial sequence that is not null.</returns>
+    public static IEnumerable<T?> NotNull<T>(this IEnumerable<T?> source)
+        where T : class
+    {
+        return source.Where(item => item != null);
     }
 }

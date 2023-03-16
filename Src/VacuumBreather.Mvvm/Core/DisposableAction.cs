@@ -20,6 +20,9 @@ public sealed class DisposableAction : IDisposable
         _action = action;
     }
 
+    /// <summary>Gets a <see cref="DisposableAction"/> that does nothing.</summary>
+    public static DisposableAction DoNothing { get; } = new(() => { });
+
     /// <summary>Executes the supplied action.</summary>
     public void Dispose()
     {

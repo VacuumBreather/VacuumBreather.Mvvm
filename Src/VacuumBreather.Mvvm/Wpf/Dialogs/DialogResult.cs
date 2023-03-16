@@ -1,4 +1,4 @@
-﻿namespace VacuumBreather.Mvvm.Wpf;
+﻿namespace VacuumBreather.Mvvm.Wpf.Dialogs;
 
 /// <summary>Specifies identifiers to indicate the return value of a dialog.</summary>
 public enum DialogResult
@@ -7,14 +7,14 @@ public enum DialogResult
     None = 0,
 
     /// <summary>The dialog return value is Cancel (usually sent from a button labeled Cancel).</summary>
-    Cancel,
+    Cancel = 1,
 
     /// <summary>The dialog return value is OK (usually sent from a button labeled OK).</summary>
-    Ok,
+    Ok = 2,
 
     /// <summary>The dialog return value is Yes (usually sent from a button labeled Yes).</summary>
-    Yes,
+    Yes = 3,
 
     /// <summary>The dialog return value is No (usually sent from a button labeled No).</summary>
-    No,
+    No = 4,
 }

@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace VacuumBreather.Mvvm.Wpf;
+namespace VacuumBreather.Mvvm.Core;
 
 /// <summary>Provides extension methods for the <see cref="Type"/> type.</summary>
 public static class TypeExtensions

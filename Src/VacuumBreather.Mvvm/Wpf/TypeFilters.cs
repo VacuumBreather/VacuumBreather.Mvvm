@@ -2,6 +2,8 @@
 using System.ComponentModel;
 using System.Windows;
 using JetBrains.Annotations;
+using VacuumBreather.Mvvm.Core;
+using VacuumBreather.Mvvm.Wpf.Dialogs;
 
 namespace VacuumBreather.Mvvm.Wpf;
 

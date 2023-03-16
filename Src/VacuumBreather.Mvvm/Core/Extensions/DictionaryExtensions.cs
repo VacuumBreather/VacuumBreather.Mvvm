@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 
-namespace VacuumBreather.Mvvm.Wpf;
+namespace VacuumBreather.Mvvm.Core;
 
 /// <summary>Provides extension methods for the <see cref="IDictionary{TKey,TValue}"/> type.</summary>
 public static class DictionaryExtensions

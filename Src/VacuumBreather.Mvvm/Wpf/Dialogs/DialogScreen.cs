@@ -4,44 +4,28 @@ using System.Threading.Tasks;
 using CommunityToolkit.Diagnostics;
 using VacuumBreather.Mvvm.Core;
 
-namespace VacuumBreather.Mvvm.Wpf;
+namespace VacuumBreather.Mvvm.Wpf.Dialogs;
 
 /// <summary>A base class for dialog screens.</summary>
-public abstract class DialogScreen : Screen, IChild<DialogConductor>
+public abstract class DialogScreen : Screen
 {
-    private TaskCompletionSource<bool?>? _taskCompletionSource;
+    private TaskCompletionSource<DialogResult>? _taskCompletionSource;
     private CancellationTokenRegistration? _cancellationTokenRegistration;
-    private bool? _result;
+    private DialogResult _result = DialogResult.None;
 
     /// <summary>Initializes a new instance of the <see cref="DialogScreen"/> class.</summary>
     protected DialogScreen()
     {
-        CloseDialogCommand = new AsyncRelayCommand<bool?>(r => TryCloseAsync(r));
+        CloseDialogCommand = new AsyncRelayCommand<DialogResult>(CloseDialogAsync);
     }
 
     /// <summary>Gets the command to close the dialog.</summary>
-    public AsyncRelayCommand<bool?> CloseDialogCommand { get; }
-
-    /// <inheritdoc/>
-    public new DialogConductor? Parent
-    {
-        get => (DialogConductor?)base.Parent;
-        set => base.Parent = value;
-    }
+    public AsyncRelayCommand<DialogResult> CloseDialogCommand { get; }
 
     /// <inheritdoc/>
     public sealed override ValueTask<bool> CanCloseAsync(CancellationToken cancellationToken = default)
     {
         return ValueTask.FromResult(result: true);
-    }
-
-    /// <inheritdoc/>
-    public sealed override ValueTask TryCloseAsync(bool? dialogResult = null,
-                                                   CancellationToken cancellationToken = default)
-    {
-        _result = dialogResult;
-
-        return base.TryCloseAsync(dialogResult, cancellationToken);
     }
 
     /// <summary>Gets the result this dialog was closed with.</summary>
@@ -50,7 +34,7 @@ public abstract class DialogScreen : Screen, IChild<DialogConductor>
     ///     this dialog was closed with.
     /// </returns>
     /// <exception cref="InvalidOperationException">Attempting to await the result before initializing the dialog.</exception>
-    public async ValueTask<bool?> GetDialogResultAsync()
+    public async ValueTask<DialogResult> GetDialogResultAsync()
     {
         if (!IsInitialized)
         {
@@ -79,11 +63,18 @@ public abstract class DialogScreen : Screen, IChild<DialogConductor>
     /// <inheritdoc/>
     protected override ValueTask OnInitializeAsync(CancellationToken cancellationToken)
     {
-        _taskCompletionSource = new TaskCompletionSource<bool?>();
+        _taskCompletionSource = new TaskCompletionSource<DialogResult>();
 
         _cancellationTokenRegistration =
             cancellationToken.Register(() => _taskCompletionSource!.TrySetResult(result: default));
 
         return base.OnInitializeAsync(cancellationToken);
+    }
+
+    private ValueTask CloseDialogAsync(DialogResult dialogResult, CancellationToken token)
+    {
+        _result = dialogResult;
+
+        return TryCloseAsync(token);
     }
 }

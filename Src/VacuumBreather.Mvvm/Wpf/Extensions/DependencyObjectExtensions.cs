@@ -49,7 +49,7 @@ public static class DependencyObjectExtensions
     public static T? FindLogicalAncestor<T>(this DependencyObject? dependencyObject)
         where T : DependencyObject
     {
-        if (dependencyObject == null)
+        if (dependencyObject is null)
         {
             return null;
         }
@@ -57,7 +57,7 @@ public static class DependencyObjectExtensions
         do
         {
             dependencyObject = LogicalTreeHelper.GetParent(dependencyObject);
-        } while ((dependencyObject != null) && !(dependencyObject is T));
+        } while ((dependencyObject != null) && dependencyObject is not T);
 
         return dependencyObject as T;
     }
@@ -69,7 +69,7 @@ public static class DependencyObjectExtensions
     public static T? FindVisualAncestor<T>(this DependencyObject? dependencyObject)
         where T : DependencyObject
     {
-        if (dependencyObject == null)
+        if (dependencyObject is null)
         {
             return null;
         }
@@ -77,8 +77,42 @@ public static class DependencyObjectExtensions
         do
         {
             dependencyObject = VisualTreeHelper.GetParent(dependencyObject);
-        } while ((dependencyObject != null) && !(dependencyObject is T));
+        } while ((dependencyObject != null) && dependencyObject is not T);
 
         return dependencyObject as T;
+    }
+
+    /// <summary>Goes down the visual tree, looking for a descendant of the specified <see cref="Type"/>.</summary>
+    /// <typeparam name="T">The <see cref="Type"/> to look for.</typeparam>
+    /// <param name="dependencyObject">The starting point.</param>
+    /// <returns>The visual descendant, if any, of the specified starting point and <see cref="Type"/>.</returns>
+    public static T? FindVisualDescendant<T>(this DependencyObject? dependencyObject)
+        where T : DependencyObject
+    {
+        if (dependencyObject is null)
+        {
+            return null;
+        }
+
+        var childrenCount = VisualTreeHelper.GetChildrenCount(dependencyObject);
+
+        for (var i = 0; i < childrenCount; i++)
+        {
+            var child = VisualTreeHelper.GetChild(dependencyObject, i);
+
+            if (child is T result)
+            {
+                return result;
+            }
+
+            var descendant = FindVisualDescendant<T>(child);
+
+            if (descendant is not null)
+            {
+                return descendant;
+            }
+        }
+
+        return null;
     }
 }

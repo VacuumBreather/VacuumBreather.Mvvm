@@ -76,13 +76,13 @@ public sealed class AsyncRelayCommand<T> : IAsyncCommand<T>
 {
     private readonly AsyncGuard _asyncGuard = new();
 
-    private readonly Func<T?, ValueTask> _execute;
+    private readonly Func<T?, CancellationToken, ValueTask> _execute;
     private readonly Func<T?, bool>? _canExecute;
 
     /// <summary>Initializes a new instance of the <see cref="AsyncRelayCommand{T}"/> class.</summary>
     /// <param name="execute">The asynchronous action to perform when the command is executed.</param>
     /// <param name="canExecute">(Optional) The predicate which checks if the command can be executed.</param>
-    public AsyncRelayCommand(Func<T?, ValueTask> execute, Func<T?, bool>? canExecute = null)
+    public AsyncRelayCommand(Func<T?, CancellationToken, ValueTask> execute, Func<T?, bool>? canExecute = null)
     {
         _execute = execute;
         _canExecute = canExecute;
@@ -100,11 +100,11 @@ public sealed class AsyncRelayCommand<T> : IAsyncCommand<T>
     }
 
     /// <inheritdoc/>
-    public async ValueTask ExecuteAsync(T? parameter)
+    public async ValueTask ExecuteAsync(T? parameter, CancellationToken cancellationToken = default)
     {
         if (CanExecute(parameter))
         {
-            await _execute(parameter).Using(_asyncGuard);
+            await _execute(parameter, cancellationToken).Using(_asyncGuard);
         }
     }
 

@@ -33,6 +33,7 @@ public interface IAsyncCommand<in T> : IRaisingCommand
     ///     Data used by the command. If the command does not require data to be passed, this object can be
     ///     set to <see langword="null"/>.
     /// </param>
+    /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
     /// <returns>A <see cref="ValueTask"/> that represents the asynchronous save operation.</returns>
-    ValueTask ExecuteAsync(T parameter);
+    ValueTask ExecuteAsync(T parameter, CancellationToken cancellationToken = default);
 }

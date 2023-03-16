@@ -3,7 +3,7 @@ using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Data;
 
-namespace VacuumBreather.Mvvm.Wpf;
+namespace VacuumBreather.Mvvm.Wpf.Dialogs;
 
 /// <summary>Contains attached dependency properties used when closing a dialog.</summary>
 public static class CloseDialog
@@ -41,14 +41,7 @@ public static class CloseDialog
             return;
         }
 
-        button.CommandParameter = e.NewValue switch
-        {
-            DialogResult.Ok => true,
-            DialogResult.Yes => true,
-            DialogResult.No => false,
-            _ => default(bool?),
-        };
-
+        button.CommandParameter = e.NewValue;
         Binding commandBinding = new(nameof(DialogScreen.CloseDialogCommand)) { Mode = BindingMode.OneWay };
         button.SetBinding(ButtonBase.CommandProperty, commandBinding);
     }

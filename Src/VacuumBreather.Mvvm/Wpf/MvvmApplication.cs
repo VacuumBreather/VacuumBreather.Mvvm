@@ -47,6 +47,8 @@ public abstract class MvvmApplication : Application
     /// <summary>Initializes a new instance of the <see cref="MvvmApplication"/> class.</summary>
     protected MvvmApplication()
     {
+        ShutdownMode = ShutdownMode.OnExplicitShutdown;
+
         _host = Host.CreateDefaultBuilder(Environment.GetCommandLineArgs())
                     .ConfigureHostBuilder(ConfigureHostBuilder)
                     .ConfigureServices(RegisterRequiredServices)

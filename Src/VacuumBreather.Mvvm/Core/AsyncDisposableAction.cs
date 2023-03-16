@@ -21,6 +21,9 @@ public sealed class AsyncDisposableAction : IAsyncDisposable
         _asyncOperation = asyncOperation;
     }
 
+    /// <summary>Gets a <see cref="AsyncDisposableAction"/> that does nothing.</summary>
+    public static AsyncDisposableAction DoNothing { get; } = new(() => ValueTask.CompletedTask);
+
     /// <summary>Executes the supplied asynchronous operation.</summary>
     /// <returns>A <see cref="ValueTask"/> that represents the asynchronous save operation.</returns>
     public async ValueTask DisposeAsync()
