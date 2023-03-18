@@ -43,7 +43,7 @@ public abstract class ConverterBase : IValueConverter
     }
 
     /// <summary>Converts a value. Called when moving a value from source to target.</summary>
-    /// <param name="value">The value as produced by source binding</param>
+    /// <param name="value">The value as produced by source binding.</param>
     /// <param name="targetType">The target type.</param>
     /// <param name="parameter">The converter parameter.</param>
     /// <param name="culture">The culture information.</param>

@@ -126,6 +126,9 @@ public abstract class TransitionSubjectBase : ContentControl, ITransitionSubject
     /// <inheritdoc/>
     public string TranslateTransformName => TranslateTransformPartName;
 
+    /// <summary>Gets a value indicating whether the object is in a valid state to perform transitions.</summary>
+    protected bool CanPerformTransition => IsLoaded && _matrixTransform is not null;
+
     /// <summary>
     ///     Gets the cascading delay between <see cref="ITransitionSubject"/> elements inside an
     ///     <see cref="ItemsControl"/>.
@@ -219,7 +222,7 @@ public abstract class TransitionSubjectBase : ContentControl, ITransitionSubject
     /// <inheritdoc/>
     public void PerformTransition(bool includeAdditionalEffects = true)
     {
-        if (!IsLoaded || _matrixTransform is null)
+        if (!CanPerformTransition)
         {
             return;
         }
@@ -231,7 +234,6 @@ public abstract class TransitionSubjectBase : ContentControl, ITransitionSubject
 
         if (transitionEffect != null)
         {
-            Timeline.SetDesiredFrameRate(transitionEffect, desiredFrameRate: 30);
             _storyboard.Children.Add(transitionEffect);
         }
 
@@ -240,7 +242,6 @@ public abstract class TransitionSubjectBase : ContentControl, ITransitionSubject
             foreach (var effect in AdditionalTransitionEffects.Select(effect => effect.Build(this))
                                                               .Where(timeline => timeline is not null))
             {
-                Timeline.SetDesiredFrameRate(effect!, desiredFrameRate: 30);
                 _storyboard.Children.Add(effect!);
             }
         }

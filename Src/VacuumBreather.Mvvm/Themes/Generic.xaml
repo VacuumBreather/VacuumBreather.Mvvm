@@ -2,6 +2,7 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:dialogs="clr-namespace:VacuumBreather.Mvvm.Wpf.Dialogs"
+    xmlns:notifications="clr-namespace:VacuumBreather.Mvvm.Wpf.Notifications"
     xmlns:transitions="clr-namespace:VacuumBreather.Mvvm.Wpf.Transitions"
     xmlns:valueConverters="clr-namespace:VacuumBreather.Mvvm.Wpf.ValueConverters">
 
@@ -10,10 +11,8 @@
         <DataTemplate.Resources>
             <valueConverters:ChainConverter x:Key="Converter.EnumFlagSetToVisible">
                 <valueConverters:ChainConverter.Converters>
-                    <valueConverters:ConverterCollection>
-                        <valueConverters:EnumFlagSetToBooleanConverter />
-                        <valueConverters:BoolToVisibilityConverter />
-                    </valueConverters:ConverterCollection>
+                    <valueConverters:EnumFlagSetToBooleanConverter />
+                    <valueConverters:BoolToVisibilityConverter />
                 </valueConverters:ChainConverter.Converters>
             </valueConverters:ChainConverter>
             <valueConverters:IsEqualConverter x:Key="Converter.IsEqualTo" />
@@ -67,6 +66,42 @@
                 Text="{Binding Content, Mode=OneWay}"
                 TextAlignment="Center" />
         </DockPanel>
+    </DataTemplate>
+
+    <!--  DataTemplate.NotificationScreen.Implicit  -->
+    <DataTemplate DataType="{x:Type notifications:NotificationScreen}">
+        <Border
+            Name="BackgroundBorder"
+            MinHeight="75"
+            Padding="25,15"
+            Background="CornflowerBlue"
+            CornerRadius="4">
+            <StackPanel HorizontalAlignment="Left" VerticalAlignment="Top">
+                <TextBlock
+                    FontSize="14"
+                    FontWeight="DemiBold"
+                    Text="{Binding Title, Mode=OneWay}"
+                    TextWrapping="Wrap" />
+                <TextBlock
+                    FontSize="14"
+                    Text="{Binding Content, Mode=OneWay}"
+                    TextWrapping="Wrap" />
+            </StackPanel>
+        </Border>
+        <DataTemplate.Triggers>
+            <DataTrigger Binding="{Binding Type, Mode=OneWay}" Value="{x:Static notifications:NotificationType.Information}">
+                <Setter TargetName="BackgroundBorder" Property="Background" Value="CornflowerBlue" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Type, Mode=OneWay}" Value="{x:Static notifications:NotificationType.Success}">
+                <Setter TargetName="BackgroundBorder" Property="Background" Value="ForestGreen" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Type, Mode=OneWay}" Value="{x:Static notifications:NotificationType.Warning}">
+                <Setter TargetName="BackgroundBorder" Property="Background" Value="DarkOrange" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Type, Mode=OneWay}" Value="{x:Static notifications:NotificationType.Error}">
+                <Setter TargetName="BackgroundBorder" Property="Background" Value="Red" />
+            </DataTrigger>
+        </DataTemplate.Triggers>
     </DataTemplate>
 
     <!--  ControlTemplate.Transitioner  -->
@@ -154,6 +189,83 @@
         </Grid>
     </ControlTemplate>
 
+    <!--  Style.Button.CloseNotifications  -->
+    <Style x:Key="Style.Button.CloseNotifications" TargetType="{x:Type Button}">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Width" Value="16" />
+        <Setter Property="Height" Value="16" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type Button}">
+                    <Border Padding="2" Background="{TemplateBinding Background}">
+                        <Viewbox>
+                            <Path
+                                Width="16"
+                                Height="16"
+                                Data="M0,0 L16,16 M16,0 L0,16 Z"
+                                Stroke="{TemplateBinding Foreground}"
+                                StrokeThickness="2" />
+                        </Viewbox>
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!--  ControlTemplate.NotificationItem  -->
+    <ControlTemplate x:Key="ControlTemplate.NotificationItem" TargetType="{x:Type notifications:NotificationItem}">
+        <Border
+            x:Name="Border"
+            Padding="{TemplateBinding Padding}"
+            Background="{TemplateBinding Background}"
+            BorderBrush="{TemplateBinding BorderBrush}"
+            BorderThickness="{TemplateBinding BorderThickness}"
+            CornerRadius="{TemplateBinding Border.CornerRadius}"
+            RenderTransformOrigin=".5,.5">
+            <Grid>
+                <ContentPresenter
+                    x:Name="ContentPresenter"
+                    HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                    VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                    Content="{TemplateBinding ContentControl.Content}"
+                    ContentStringFormat="{TemplateBinding ContentControl.ContentStringFormat}"
+                    ContentTemplate="{TemplateBinding ContentControl.ContentTemplate}"
+                    ContentTemplateSelector="{TemplateBinding ContentControl.ContentTemplateSelector}" />
+                <Button
+                    Margin="10"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Top"
+                    Command="{x:Static notifications:NotificationItem.CloseCommand}"
+                    Style="{StaticResource Style.Button.CloseNotifications}" />
+            </Grid>
+            <Border.RenderTransform>
+                <TransformGroup>
+                    <MatrixTransform x:Name="PART_MatrixTransform" />
+                    <RotateTransform x:Name="PART_RotateTransform" Angle="0" />
+                    <ScaleTransform x:Name="PART_ScaleTransform" ScaleX="1" ScaleY="1" />
+                    <SkewTransform x:Name="PART_SkewTransform" AngleX="0" AngleY="0" />
+                    <TranslateTransform x:Name="PART_TranslateTransform" X="0" Y="0" />
+                </TransformGroup>
+            </Border.RenderTransform>
+            <Border.LayoutTransform>
+                <ScaleTransform x:Name="PART_LayoutScaleTransform" ScaleX="1" ScaleY="1" />
+            </Border.LayoutTransform>
+        </Border>
+    </ControlTemplate>
+
+    <!--  ControlTemplate.NotificationHost  -->
+    <ControlTemplate x:Key="ControlTemplate.NotificationHost" TargetType="{x:Type notifications:NotificationHost}">
+        <DockPanel x:Name="PART_RootPanel">
+            <notifications:NotificationPanel
+                x:Name="PART_ItemsPresenter"
+                IsItemsHost="True"
+                MaxDisplayedElements="{TemplateBinding MaxDisplayedElements}"
+                SeparatorBrush="Transparent"
+                SeparatorMargin="0"
+                SeparatorThickness="3" />
+        </DockPanel>
+    </ControlTemplate>
+
     <!--  Style.Transitioner  -->
     <Style x:Key="Style.Transitioner" TargetType="{x:Type transitions:Transitioner}">
         <Setter Property="ClipToBounds" Value="True" />
@@ -221,6 +333,30 @@
         <Setter Property="Template" Value="{StaticResource ControlTemplate.DialogHost}" />
     </Style>
 
+    <!--  Style.DialogItem  -->
+    <Style
+        x:Key="Style.NotificationItem"
+        BasedOn="{StaticResource Style.TransitioningContentControl}"
+        TargetType="{x:Type notifications:NotificationItem}">
+        <Setter Property="MaxWidth" Value="300" />
+        <Setter Property="MinWidth" Value="300" />
+        <Setter Property="Width" Value="300" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="VerticalContentAlignment" Value="Stretch" />
+        <Setter Property="Border.CornerRadius" Value="4" />
+        <Setter Property="TransitionEffect" Value="{transitions:ZoomInTransition}" />
+        <Setter Property="CloseTransitionEffect" Value="{transitions:ShrinkOutTransition Duration='0:0:0.333'}" />
+        <Setter Property="Template" Value="{StaticResource ControlTemplate.NotificationItem}" />
+    </Style>
+
+    <!--  Style.NotificationHost  -->
+    <Style x:Key="Style.NotificationHost" TargetType="{x:Type notifications:NotificationHost}">
+        <Setter Property="ItemContainerStyle" Value="{StaticResource Style.NotificationItem}" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="Template" Value="{StaticResource ControlTemplate.NotificationHost}" />
+    </Style>
+
     <!--  Style.TransitionSubjectBase.Implicit  -->
     <Style BasedOn="{StaticResource Style.TransitionSubjectBase}" TargetType="{x:Type transitions:TransitionSubjectBase}" />
 
@@ -238,5 +374,11 @@
 
     <!--  Style.DialogHost.Implicit  -->
     <Style BasedOn="{StaticResource Style.DialogHost}" TargetType="{x:Type dialogs:DialogHost}" />
+
+    <!--  Style.NotificationItem.Implicit  -->
+    <Style BasedOn="{StaticResource Style.NotificationItem}" TargetType="{x:Type notifications:NotificationItem}" />
+
+    <!--  Style.NotificationHost.Implicit  -->
+    <Style BasedOn="{StaticResource Style.NotificationHost}" TargetType="{x:Type notifications:NotificationHost}" />
 
 </ResourceDictionary>

@@ -33,8 +33,14 @@ public enum TransitionTriggers
     Default = Loaded | ContentChanged,
 
     /// <summary>
+    ///     The transition is triggered when the content of the <see cref="TransitioningContentControl"/> is first loaded,
+    ///     when it becomes visible or when its content changes.
+    /// </summary>
+    LoadedChangedVisible = Loaded | IsVisible | ContentChanged,
+
+    /// <summary>
     ///     The transition is triggered when the <see cref="TransitioningContentControl"/> is first loaded or when its
-    ///     content changes, it becomes visible or is enabled. This is the default.
+    ///     content changes, it becomes visible or is enabled.
     /// </summary>
     All = Loaded | IsVisible | IsEnabled | ContentChanged,
 }

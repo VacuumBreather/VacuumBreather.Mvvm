@@ -14,7 +14,7 @@ namespace VacuumBreather.Mvvm.Wpf.ValueConverters;
 public class IsEqualConverter : ConverterBase
 {
     /// <summary>Converts a value to <see langword="true"/> if it is equal to the provided parameter value.</summary>
-    /// <param name="value">The value as produced by source binding</param>
+    /// <param name="value">The value as produced by source binding.</param>
     /// <param name="targetType">The target type.</param>
     /// <param name="parameter">The converter parameter.</param>
     /// <param name="culture">The culture information.</param>

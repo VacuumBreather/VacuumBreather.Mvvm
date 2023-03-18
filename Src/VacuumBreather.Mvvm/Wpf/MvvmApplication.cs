@@ -13,6 +13,8 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using VacuumBreather.Mvvm.Core;
+using VacuumBreather.Mvvm.Wpf.Dialogs;
+using VacuumBreather.Mvvm.Wpf.Notifications;
 
 namespace VacuumBreather.Mvvm.Wpf;
 
@@ -272,6 +274,8 @@ public abstract class MvvmApplication : Application
     private static void RegisterRequiredServices(HostBuilderContext context, IServiceCollection services)
     {
         services.AddSingleton<ViewLocator>();
+        services.AddSingleton<INotificationService, NotificationConductor>();
+        services.AddSingleton<IDialogService, DialogConductor>();
     }
 
     private void AddServiceProviderToDictionary(IDictionary resourceDictionary)
@@ -500,6 +504,9 @@ public abstract class MvvmApplication : Application
         }
 
         Logger.LogDebug(message: "Resolving main view");
+
+        await Services.GetRequiredService<INotificationService>().ActivateAsync(operation.Token);
+        await Services.GetRequiredService<IDialogService>().ActivateAsync(operation.Token);
 
         var mainView = ResolveMainWindow(Services);
         mainView.DataContext = ShellViewModel;

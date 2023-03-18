@@ -22,7 +22,7 @@ public abstract class TransitionBase : MarkupExtension, ITransition
     public TimeSpan Duration { get; set; } = TimeSpan.FromMilliseconds(value: 250);
 
     /// <inheritdoc/>
-    public IEasingFunction EasingFunction { get; set; } = new SineEase();
+    public IEasingFunction EasingFunction { get; set; } = new CubicEase();
 
     /// <inheritdoc/>
     public Point Origin { get; set; } = new(x: 0.5, y: 0.5);

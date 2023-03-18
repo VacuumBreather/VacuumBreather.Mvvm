@@ -17,6 +17,8 @@ namespace VacuumBreather.Mvvm.Wpf;
 [PublicAPI]
 public static class View
 {
+    private const string DefaultContentProperty = nameof(ContentControl.Content);
+
     /// <summary>Identifies the ContentPropertyName dependency property.</summary>
     public static readonly DependencyProperty ContentPropertyNameProperty = DependencyProperty.RegisterAttached(
         PropertyNameHelper.GetName(nameof(ContentPropertyNameProperty)),
@@ -37,8 +39,6 @@ public static class View
         typeof(object),
         typeof(View),
         new PropertyMetadata(defaultValue: default, OnModelChanged));
-
-    private const string DefaultContentProperty = nameof(ContentControl.Content);
 
     private static readonly DependencyProperty ContextProperty = DependencyProperty.RegisterAttached(
         PropertyNameHelper.GetName(nameof(ContextProperty)),

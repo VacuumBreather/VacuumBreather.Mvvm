@@ -1,32 +1,69 @@
 ﻿using System;
-using System.ComponentModel;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Diagnostics;
+using JetBrains.Annotations;
+using Microsoft.Win32;
 using VacuumBreather.Mvvm.Core;
 
 namespace VacuumBreather.Mvvm.Wpf.Dialogs;
 
-/// <summary>A conductor for dialogs.</summary>
-public abstract class DialogConductor : Screen, IDialogService
+/// <summary>A conductor handling dialogs.</summary>
+[PublicAPI]
+public class DialogConductor : ConductorCollectionOneActive<DialogScreen>, IDialogService
 {
-    private readonly ConductorCollectionOneActive<DialogScreen> _internalConductor = new();
-
     /// <summary>Initializes a new instance of the <see cref="DialogConductor"/> class.</summary>
-    protected DialogConductor()
+    public DialogConductor()
     {
         DisplayName = GetType().Name;
-        _internalConductor.PropertyChanged += OnInternalConductorPropertyChanged;
     }
 
     /// <inheritdoc/>
-    public DialogScreen? ActiveItem => _internalConductor.ActiveItem;
-
-    /// <inheritdoc/>
-    public IBindableCollection<DialogScreen> Items => _internalConductor.Items;
-
-    /// <inheritdoc/>
     object? IHaveReadOnlyActiveItem.ActiveItem => ActiveItem;
+
+    /// <inheritdoc/>
+    public virtual ValueTask<string?> ShowOpenFileDialogAsync(FileDialogOptions options,
+                                                              CancellationToken cancellationToken = default)
+    {
+        var openFileDialog = new OpenFileDialog
+                             {
+                                 Filter = options.Filter,
+                                 InitialDirectory = options.InitialDirectory,
+                                 RestoreDirectory = options.RestoreDirectory,
+                             };
+
+        return ThreadHelper.RunOnUIThreadAsync(() =>
+        {
+            if (openFileDialog.ShowDialog() == true)
+            {
+                return openFileDialog.FileName;
+            }
+
+            return null;
+        });
+    }
+
+    /// <inheritdoc/>
+    public virtual ValueTask<string?> ShowSaveFileDialogAsync(FileDialogOptions options,
+                                                              CancellationToken cancellationToken = default)
+    {
+        var openFileDialog = new SaveFileDialog
+                             {
+                                 Filter = options.Filter,
+                                 InitialDirectory = options.InitialDirectory,
+                                 RestoreDirectory = options.RestoreDirectory,
+                             };
+
+        return ThreadHelper.RunOnUIThreadAsync(() =>
+        {
+            if (openFileDialog.ShowDialog() == true)
+            {
+                return openFileDialog.FileName;
+            }
+
+            return null;
+        });
+    }
 
     /// <summary>Shows the specified <see cref="DialogScreen"/> as a dialog.</summary>
     /// <param name="dialog">The dialog to show.</param>
@@ -45,44 +82,12 @@ public abstract class DialogConductor : Screen, IDialogService
     public async ValueTask<DialogResult> ShowDialogAsync(DialogScreen dialog,
                                                          CancellationToken cancellationToken = default)
     {
-        Guard.IsFalse(_internalConductor.Items.Contains(dialog),
+        Guard.IsFalse(Items.Contains(dialog),
                       nameof(dialog),
                       $"Attempting to open a {dialog.GetType().Name} dialog with the same instance multiple times simultaneously.");
 
-        if (!_internalConductor.IsActive)
-        {
-            await _internalConductor.ActivateAsync(cancellationToken);
-        }
-
-        await _internalConductor.ActivateItemAsync(dialog, cancellationToken);
+        await ActivateItemAsync(dialog, cancellationToken);
 
         return await dialog.GetDialogResultAsync();
-    }
-
-    /// <inheritdoc/>
-    public abstract ValueTask<string?> ShowOpenFileDialogAsync(FileDialogOptions options,
-                                                               CancellationToken cancellationToken = default);
-
-    /// <inheritdoc/>
-    public abstract ValueTask<string?> ShowSaveFileDialogAsync(FileDialogOptions options,
-                                                               CancellationToken cancellationToken = default);
-
-    /// <inheritdoc/>
-    protected override async ValueTask OnDeactivateAsync(bool close, CancellationToken cancellationToken)
-    {
-        if (close)
-        {
-            await _internalConductor.DeactivateAsync(close, cancellationToken);
-        }
-    }
-
-    private void OnInternalConductorPropertyChanged(object? sender, PropertyChangedEventArgs e)
-    {
-        if (string.Equals(e.PropertyName,
-                          nameof(ConductorCollectionOneActive<DialogScreen>.ActiveItem),
-                          StringComparison.Ordinal))
-        {
-            OnPropertyChanged(nameof(ActiveItem));
-        }
     }
 }

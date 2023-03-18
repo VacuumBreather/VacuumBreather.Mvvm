@@ -9,9 +9,6 @@ namespace VacuumBreather.Mvvm.Wpf.Dialogs;
 [PublicAPI]
 public interface IDialogService : IHaveReadOnlyActiveItem<DialogScreen>, IScreen
 {
-    /// <summary>Gets the items that are currently being conducted.</summary>
-    IBindableCollection<DialogScreen> Items { get; }
-
     /// <summary>Shows the specified <see cref="DialogScreen"/> as a dialog.</summary>
     /// <param name="dialog">The dialog to show.</param>
     /// <param name="cancellationToken">

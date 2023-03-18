@@ -14,6 +14,15 @@ namespace VacuumBreather.Mvvm.Wpf;
 [PublicAPI]
 public class SeparatingPanel : Panel
 {
+    /// <summary>Identifies the <see cref="ReverseOrder"/> dependency property.</summary>
+    public static readonly DependencyProperty ReverseOrderProperty = DependencyProperty.Register(
+        nameof(ReverseOrder),
+        typeof(bool),
+        typeof(SeparatingPanel),
+        new FrameworkPropertyMetadata(default(bool),
+                                      FrameworkPropertyMetadataOptions.AffectsArrange |
+                                      FrameworkPropertyMetadataOptions.AffectsRender));
+
     /// <summary>Identifies the <see cref="SeparatorBrush"/> dependency property.</summary>
     public static readonly DependencyProperty SeparatorBrushProperty =
         DependencyProperty.Register(nameof(SeparatorBrush),
@@ -76,6 +85,13 @@ public class SeparatingPanel : Panel
         set => SetValue(DrawSeparatorBelowProperty, value);
     }
 
+    /// <summary>Gets or sets a value indicating whether the order of elements should be reversed by the panel.</summary>
+    public bool ReverseOrder
+    {
+        get => (bool)GetValue(ReverseOrderProperty);
+        set => SetValue(ReverseOrderProperty, value);
+    }
+
     /// <summary>Gets or sets the brush used to draw the separator between panel children.</summary>
     public Brush? SeparatorBrush
     {
@@ -95,6 +111,13 @@ public class SeparatingPanel : Panel
     {
         get => (double)GetValue(SeparatorThicknessProperty);
         set => SetValue(SeparatorThicknessProperty, value);
+    }
+
+    /// <summary>Gets the list of internal children cast to <see cref="UIElement"/>.</summary>
+    /// <returns>The list of internal children.</returns>
+    protected virtual IList<UIElement> GetInternalChildElements()
+    {
+        return InternalChildren.Cast<UIElement>().ToArray();
     }
 
     /// <inheritdoc/>
@@ -123,7 +146,7 @@ public class SeparatingPanel : Panel
             return Size.Empty;
         }
 
-        var children = InternalChildren.Cast<UIElement>().ToArray();
+        var children = GetInternalChildElements();
 
         children.ForEach(child => child.Measure(availableSize));
 
@@ -192,7 +215,12 @@ public class SeparatingPanel : Panel
             return Array.Empty<ChildWrapper>();
         }
 
-        var children = InternalChildren.Cast<UIElement>().ToArray();
+        var children = GetInternalChildElements();
+
+        if (ReverseOrder)
+        {
+            children = children.Reverse().ToArray();
+        }
 
         var separatorHeight = SeparatorThickness + SeparatorMargin.Top + SeparatorMargin.Bottom;
 

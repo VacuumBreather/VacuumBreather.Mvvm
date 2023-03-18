@@ -1,5 +1,7 @@
-﻿using System.Windows;
+﻿using System;
+using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Data;
 using System.Windows.Media;
 using JetBrains.Annotations;
 
@@ -41,6 +43,14 @@ public class DialogHost : ContentControl
     public DialogHost()
     {
         Loaded += OnLoaded;
+
+        if (TryFindResource(nameof(IServiceProvider)) is IServiceProvider serviceProvider &&
+            serviceProvider.GetService(typeof(IDialogService)) is IDialogService service)
+        {
+            DataContext = service;
+            var contentBinding = new Binding(nameof(IDialogService.ActiveItem)) { Mode = BindingMode.OneWay };
+            SetBinding(ContentProperty, contentBinding);
+        }
     }
 
     /// <summary>Gets or sets the <see cref="Style"/> to be used on the <see cref="DialogItem"/> container.</summary>

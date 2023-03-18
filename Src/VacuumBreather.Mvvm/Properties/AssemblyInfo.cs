@@ -28,7 +28,10 @@ using System.Windows.Markup;
                     clrNamespace: "VacuumBreather.Mvvm.Wpf.ValueConverters")]
 [assembly:
     XmlnsDefinition(xmlNamespace: "http://vacuumbreather.de/mvvm",
+                    clrNamespace: "VacuumBreather.Mvvm.Wpf.Transitions")]
+[assembly:
+    XmlnsDefinition(xmlNamespace: "http://vacuumbreather.de/mvvm",
                     clrNamespace: "VacuumBreather.Mvvm.Wpf.Dialogs")]
 [assembly:
     XmlnsDefinition(xmlNamespace: "http://vacuumbreather.de/mvvm",
-                    clrNamespace: "VacuumBreather.Mvvm.Wpf.Transitions")]
+                    clrNamespace: "VacuumBreather.Mvvm.Wpf.Notifications")]
