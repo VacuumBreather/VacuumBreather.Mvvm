@@ -73,18 +73,21 @@ public class NotificationScreen : Screen
         var usedExpirationTime = ExpirationTime ?? notificationConductor.ExpirationTime;
 
         ThreadHelper.RunOnUIThreadAndForget(async () =>
-        {
-            using var operation = AsyncHelper.CreateAsyncOperation(cancellationToken).Assign(out _showOperation);
+                                            {
+                                                using var operation = AsyncHelper
+                                                                      .CreateAsyncOperation(cancellationToken)
+                                                                      .Assign(out _showOperation);
 
-            try
-            {
-                await Task.Delay(usedExpirationTime, operation.Token);
-            }
-            finally
-            {
-                await TryCloseAsync(CancellationToken.None);
-            }
-        });
+                                                try
+                                                {
+                                                    await Task.Delay(usedExpirationTime, operation.Token);
+                                                }
+                                                finally
+                                                {
+                                                    await TryCloseAsync(CancellationToken.None);
+                                                }
+                                            },
+                                            cancellationToken: cancellationToken);
 
         return ValueTask.CompletedTask;
     }

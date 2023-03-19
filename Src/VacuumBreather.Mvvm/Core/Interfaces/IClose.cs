@@ -9,7 +9,7 @@ namespace VacuumBreather.Mvvm.Core;
 public interface IClose
 {
     /// <summary>Tries to close this instance.</summary>
-    /// <param name="cancellationToken">The cancellation token to cancel operation.</param>
+    /// <param name="cancellationToken">(Optional) The cancellation token to cancel operation.</param>
     /// <returns>A <see cref="ValueTask"/> representing the asynchronous operation.</returns>
     ValueTask TryCloseAsync(CancellationToken cancellationToken = default);
 }

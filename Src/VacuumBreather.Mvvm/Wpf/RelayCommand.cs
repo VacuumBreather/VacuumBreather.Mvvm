@@ -40,7 +40,7 @@ public class RelayCommand : IRaisingCommand
         }
     }
 
-    /// <summary>Raises the <see cref="CanExecuteChanged"/> event.</summary>
+    /// <inheritdoc/>
     public void Refresh()
     {
         CanExecuteChanged?.Invoke(this, EventArgs.Empty);
@@ -84,7 +84,7 @@ public class RelayCommand<T> : ICommand<T>
         }
     }
 
-    /// <summary>Raises the <see cref="CanExecuteChanged"/> event.</summary>
+    /// <inheritdoc/>
     public void Refresh()
     {
         CanExecuteChanged?.Invoke(this, EventArgs.Empty);

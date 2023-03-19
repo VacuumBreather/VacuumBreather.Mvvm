@@ -3,10 +3,12 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using JetBrains.Annotations;
 
 namespace VacuumBreather.Mvvm.Core;
 
 /// <summary>Provides extension methods for the <see cref="AsyncEventHandler{TEventArgs}"/> type.</summary>
+[PublicAPI]
 public static class AsyncEventHandlerExtensions
 {
     /// <summary>Gets all the event handlers attached to this delegate instance.</summary>

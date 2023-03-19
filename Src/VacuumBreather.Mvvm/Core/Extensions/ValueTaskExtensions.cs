@@ -1,9 +1,11 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Threading.Tasks;
+using JetBrains.Annotations;
 
 namespace VacuumBreather.Mvvm.Core;
 
 /// <summary>Provides extension methods for the <see cref="ValueTask"/> type.</summary>
+[PublicAPI]
 public static class ValueTaskExtensions
 {
     /// <summary>Uses the provided ticket to guard this task while it is running.</summary>

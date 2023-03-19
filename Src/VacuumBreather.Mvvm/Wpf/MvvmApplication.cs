@@ -7,11 +7,13 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Threading;
 using JetBrains.Annotations;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.VisualStudio.Threading;
 using VacuumBreather.Mvvm.Core;
 using VacuumBreather.Mvvm.Wpf.Dialogs;
 using VacuumBreather.Mvvm.Wpf.Notifications;
@@ -32,7 +34,7 @@ namespace VacuumBreather.Mvvm.Wpf;
                  Justification =
                      "The fields in question are only ever instantiated in using blocks. The host is also cleaned up.")]
 [PublicAPI]
-public abstract class MvvmApplication : Application
+public abstract class MvvmApplication : Application, IActivate, IDeactivate
 {
     private readonly IHost _host;
 
@@ -41,10 +43,7 @@ public abstract class MvvmApplication : Application
     private int _closingAttempts;
     private bool _isInitialized;
 
-    private IAsyncOperation? _startOperation;
-    private IAsyncOperation? _enableOperation;
-    private IAsyncOperation? _disableOperation;
-    private IAsyncOperation? _shutdownOperation;
+    private IAsyncOperation? _initializationOperation;
 
     /// <summary>Initializes a new instance of the <see cref="MvvmApplication"/> class.</summary>
     protected MvvmApplication()
@@ -56,6 +55,21 @@ public abstract class MvvmApplication : Application
                     .ConfigureServices(RegisterRequiredServices)
                     .Build();
     }
+
+    /// <inheritdoc/>
+    public new event Core.AsyncEventHandler<ActivationEventArgs>? Activated;
+
+    /// <inheritdoc/>
+    public event Core.AsyncEventHandler<ActivatingEventArgs>? Activating;
+
+    /// <inheritdoc/>
+    public new event Core.AsyncEventHandler<DeactivationEventArgs>? Deactivated;
+
+    /// <inheritdoc/>
+    public event Core.AsyncEventHandler<DeactivatingEventArgs>? Deactivating;
+
+    /// <inheritdoc/>
+    public bool IsActive { get; private set; }
 
     /// <summary>
     ///     Gets or sets a value indicating whether this <see cref="MvvmApplication"/> will react to the main window
@@ -100,7 +114,7 @@ public abstract class MvvmApplication : Application
     public async ValueTask ShutdownAsync()
     {
         // Guard against multiple executions.
-        if (!_isInitialized || _shutdownOperation is not null)
+        if (!_isInitialized)
         {
             return;
         }
@@ -111,12 +125,7 @@ public abstract class MvvmApplication : Application
 
             Logger.LogInformation(message: "Shutting down...");
 
-            using var operation = AsyncHelper.CreateAsyncOperation().Assign(out _shutdownOperation);
-
-            await AsyncHelper.AwaitCompletionAsync(_startOperation);
-            await AsyncHelper.AwaitCompletionAsync(_disableOperation);
-
-            _enableOperation?.Cancel();
+            await AsyncHelper.AwaitCompletionAsync(_initializationOperation);
 
             await OnShutdownAsync();
 
@@ -135,6 +144,95 @@ public abstract class MvvmApplication : Application
             Shutdown(exitCode: -1);
 
             throw;
+        }
+    }
+
+    /// <inheritdoc/>
+    public async ValueTask ActivateAsync(CancellationToken cancellationToken = default)
+    {
+        if (IsActive)
+        {
+            return;
+        }
+
+        IsActive = true;
+
+        using var operation = AsyncHelper.CreateAsyncOperation(cancellationToken).CancelWhenDeactivating(this);
+
+        await OnActivatingAsync(!_isInitialized, operation.Token);
+
+        var wasInitialized = false;
+
+        if (!_isInitialized)
+        {
+            // Deactivation is not allowed to cancel initialization so we are passing only the outer token.
+            _isInitialized = wasInitialized = await InitializeAsync(cancellationToken);
+
+            if (!_isInitialized)
+            {
+                Logger.LogTrace(message: "Application initialization failed");
+
+                return;
+            }
+        }
+
+        Logger.LogTrace(message: "Activating application...");
+
+        if (ShellViewModel is IActivate activate && !operation.IsCancellationRequested)
+        {
+            await activate.ActivateAsync(operation.Token);
+        }
+
+        await OnActivatedAsync(wasInitialized, operation.Token);
+
+        Logger.LogTrace(message: "Application activated");
+
+        if (wasInitialized)
+        {
+            Logger.LogInformation(message: "Application initialized");
+        }
+    }
+
+    /// <inheritdoc/>
+    public async ValueTask DeactivateAsync(bool close, CancellationToken cancellationToken = default)
+    {
+        if (!_isInitialized)
+        {
+            // We do not allow deactivation before initialization.
+            await AsyncHelper.AwaitCompletionAsync(_initializationOperation, cancellationToken);
+        }
+
+        if (IsActive || (_isInitialized && close))
+        {
+            IsActive = false;
+
+            using var operation = AsyncHelper.CreateAsyncOperation(cancellationToken).CancelWhenActivating(this);
+
+            await OnDeactivatingAsync(close, cancellationToken);
+
+            if (close)
+            {
+                Logger.LogDebug(message: "Closing application...");
+
+                await ShutdownAsync();
+            }
+            else if (ShellViewModel is IDeactivate deactivate && !operation.IsCancellationRequested)
+            {
+                Logger.LogTrace(message: "Deactivating application...");
+
+                await deactivate.DeactivateAsync(close: false, operation.Token);
+            }
+
+            await OnDeactivatedAsync(close, cancellationToken);
+
+            if (close)
+            {
+                Logger.LogInformation(message: "Application closed");
+            }
+            else
+            {
+                Logger.LogTrace(message: "Application deactivated");
+            }
         }
     }
 
@@ -186,23 +284,26 @@ public abstract class MvvmApplication : Application
     {
     }
 
-    /// <summary>Override this to add custom logic on initialization.</summary>
-    /// <returns><see langword="true"/> if the custom initialization logic was successful; otherwise, <see langword="false"/> .</returns>
-    protected virtual bool OnInitialize()
+    /// <summary>Override this to add custom logic after initialization.</summary>
+    /// <returns>A <see cref="ValueTask"/> that represents the asynchronous save operation.</returns>
+    protected virtual ValueTask OnInitializedAsync()
     {
-        return true;
+        return ValueTask.CompletedTask;
+    }
+
+    /// <summary>Override this to add custom logic on initialization.</summary>
+    /// <returns>
+    ///     A <see cref="ValueTask"/> that represents the asynchronous save operation. The task result contains a value
+    ///     indicating whether the custom initialization logic was successful.
+    /// </returns>
+    protected virtual ValueTask<bool> OnInitializingAsync()
+    {
+        return ValueTask.FromResult(result: true);
     }
 
     /// <summary>Override this to add custom logic on shutdown.</summary>
     /// <returns>A <see cref="ValueTask"/> that represents the asynchronous save operation.</returns>
     protected virtual ValueTask OnShutdownAsync()
-    {
-        return ValueTask.CompletedTask;
-    }
-
-    /// <summary>Override this to add custom logic on startup.</summary>
-    /// <returns>A <see cref="ValueTask"/> that represents the asynchronous save operation.</returns>
-    protected virtual ValueTask OnStartupAsync()
     {
         return ValueTask.CompletedTask;
     }
@@ -221,22 +322,24 @@ public abstract class MvvmApplication : Application
     /// <inheritdoc/>
     protected sealed override void OnActivated(EventArgs e)
     {
+        Logger.LogTrace(message: "OnActivated(EventArgs e)");
         base.OnActivated(e);
 
         if (IsReactingToWindowActivationEvents)
         {
-            OnEnableAsync().Forget();
+            ThreadHelper.Forget(ActivateAsync());
         }
     }
 
     /// <inheritdoc/>
     protected sealed override void OnDeactivated(EventArgs e)
     {
+        Logger.LogTrace(message: "OnDeactivated(EventArgs e)");
         base.OnDeactivated(e);
 
         if (IsReactingToWindowActivationEvents)
         {
-            OnDisableAsync().Forget();
+            ThreadHelper.Forget(DeactivateAsync(close: false));
         }
     }
 
@@ -250,15 +353,15 @@ public abstract class MvvmApplication : Application
         applicationLifetime.ApplicationStopping.Register(OnApplicationStopping);
         applicationLifetime.ApplicationStopped.Register(OnApplicationStopped);
 
-        ThreadHelper.Initialize(Dispatcher,
-                                applicationLifetime,
-                                ShutdownTimeout,
-                                ex => HandleUnhandledException(ex,
-                                                               $"{nameof(ThreadHelper)}.{nameof(ThreadHelper.CleanUp)}"));
+        ThreadHelper.Initialize(
+            new JoinableTaskContext(Dispatcher.Thread, new DispatcherSynchronizationContext(Dispatcher)),
+            applicationLifetime.ApplicationStopping,
+            ShutdownTimeout,
+            ex => HandleUnhandledException(ex, $"{nameof(ThreadHelper)}.CleanUp"));
 
         async ValueTask StartHost() => await _host.StartAsync();
 
-        StartHost().Forget();
+        ThreadHelper.Forget(StartHost());
     }
 
     /// <summary>Resolves the main view-model <see cref="BindableObject"/> (The data context of the main window).</summary>
@@ -283,16 +386,21 @@ public abstract class MvvmApplication : Application
         resourceDictionary[nameof(IServiceProvider)] = _host.Services;
     }
 
-    private void Initialize()
+    private async Task<bool> InitializeAsync(CancellationToken cancellationToken)
     {
-        if (_isInitialized)
+        using var initOperation =
+            AsyncHelper.CreateAsyncOperation(cancellationToken).Assign(out _initializationOperation);
+
+        if (initOperation.IsCancellationRequested)
         {
-            return;
+            Logger.LogDebug(message: "Application initialization canceled");
+
+            return false;
         }
 
-        SetupExceptionHandling();
+        Logger.LogInformation(message: "Initializing application...");
 
-        Logger.LogInformation(message: "Initializing...");
+        SetupExceptionHandling();
 
         var viewLocator = _host.Services.GetRequiredService<ViewLocator>();
 
@@ -300,18 +408,42 @@ public abstract class MvvmApplication : Application
 
         ConfigureViewLocator(viewLocator);
 
-        var wasOnInitializeSuccessful = OnInitialize();
+        var wasSuccessful = await OnInitializingAsync();
 
-        if (!wasOnInitializeSuccessful)
+        if (!wasSuccessful)
         {
             Logger.LogError(message: "Initialization failed");
+            Shutdown(exitCode: -1);
 
-            return;
+            return false;
         }
+
+        InitializeResources();
+
+        Logger.LogDebug(message: "Resolving main view-model");
+
+        ShellViewModel = ResolveMainViewModel(Services);
+
+        if (ShellViewModel is IDeactivate deactivate)
+        {
+            deactivate.Deactivated += OnShellViewModelDeactivatedAsync;
+        }
+
+        Logger.LogDebug(message: "Resolving main view");
+
+        await Services.GetRequiredService<INotificationService>().ActivateAsync(cancellationToken);
+        await Services.GetRequiredService<IDialogService>().ActivateAsync(cancellationToken);
+
+        var mainView = ResolveMainWindow(Services);
+        mainView.DataContext = ShellViewModel;
+        mainView.Closing += OnWindowClosing;
+        mainView.Show();
 
         _isInitialized = true;
 
-        Logger.LogInformation(message: "Initialization completed");
+        await OnInitializedAsync();
+
+        return _isInitialized;
     }
 
     private void InitializeResources()
@@ -341,15 +473,21 @@ public abstract class MvvmApplication : Application
         }
     }
 
+    private ValueTask OnActivatedAsync(bool wasInitialized, CancellationToken cancellationToken)
+    {
+        return Activated?.InvokeAllAsync(this, new ActivationEventArgs(wasInitialized), cancellationToken) ??
+               ValueTask.CompletedTask;
+    }
+
+    private ValueTask OnActivatingAsync(bool willInitialize, CancellationToken cancellationToken)
+    {
+        return Activating?.InvokeAllAsync(this, new ActivatingEventArgs(willInitialize), cancellationToken) ??
+               ValueTask.CompletedTask;
+    }
+
     private void OnApplicationStarted()
     {
-        async ValueTask OnStarted()
-        {
-            await StartAsync();
-            await OnEnableAsync();
-        }
-
-        OnStarted().Forget();
+        ThreadHelper.Forget(ActivateAsync());
     }
 
     private void OnApplicationStopped()
@@ -358,44 +496,16 @@ public abstract class MvvmApplication : Application
         Shutdown();
     }
 
-    private async ValueTask OnDisableAsync()
+    private ValueTask OnDeactivatedAsync(bool wasClosed, CancellationToken cancellationToken)
     {
-        // Wait for startup completion.
-        await AsyncHelper.AwaitCompletionAsync(_startOperation);
-
-        // Guard against multiple simultaneous executions.
-        await AsyncHelper.AwaitCompletionAsync(_disableOperation);
-
-        using var operation = AsyncHelper.CreateAsyncOperation().Assign(out _disableOperation);
-
-        // Cancel activation and wait for potential synchronous steps to complete.
-        _enableOperation?.Cancel();
-        await AsyncHelper.AwaitCompletionAsync(_enableOperation);
-
-        if (ShellViewModel is IDeactivate deactivate && !_disableOperation.IsCancellationRequested)
-        {
-            await deactivate.DeactivateAsync(close: false, _disableOperation.Token);
-        }
+        return Deactivated?.InvokeAllAsync(this, new DeactivationEventArgs(wasClosed), cancellationToken) ??
+               ValueTask.CompletedTask;
     }
 
-    private async ValueTask OnEnableAsync()
+    private ValueTask OnDeactivatingAsync(bool willClose, CancellationToken cancellationToken)
     {
-        // Wait for startup completion.
-        await AsyncHelper.AwaitCompletionAsync(_startOperation);
-
-        // Guard against multiple simultaneous executions.
-        await AsyncHelper.AwaitCompletionAsync(_enableOperation);
-
-        using var operation = AsyncHelper.CreateAsyncOperation().Assign(out _enableOperation);
-
-        // Cancel deactivation and wait for potential synchronous steps to complete.
-        _disableOperation?.Cancel();
-        await AsyncHelper.AwaitCompletionAsync(_disableOperation);
-
-        if (ShellViewModel is IActivate activate && !_enableOperation.IsCancellationRequested)
-        {
-            await activate.ActivateAsync(_enableOperation.Token);
-        }
+        return Deactivating?.InvokeAllAsync(this, new DeactivatingEventArgs(willClose), cancellationToken) ??
+               ValueTask.CompletedTask;
     }
 
     private async ValueTask OnShellViewModelDeactivatedAsync(object sender,
@@ -404,7 +514,7 @@ public abstract class MvvmApplication : Application
     {
         if (e.WasClosed)
         {
-            await ShutdownAsync();
+            await DeactivateAsync(close: true, cancellationToken);
         }
     }
 
@@ -435,7 +545,7 @@ public abstract class MvvmApplication : Application
 
             if (canClose)
             {
-                await ShutdownAsync();
+                await DeactivateAsync(close: true);
             }
             else
             {
@@ -443,7 +553,7 @@ public abstract class MvvmApplication : Application
             }
         }
 
-        ClosingTask().Forget();
+        ThreadHelper.Forget(ClosingTask());
     }
 
     private void SetupExceptionHandling()
@@ -469,52 +579,5 @@ public abstract class MvvmApplication : Application
 
             e.SetObserved();
         };
-    }
-
-    private async ValueTask StartAsync()
-    {
-        // Guard against multiple executions.
-        if (_startOperation is not null)
-        {
-            return;
-        }
-
-        using var operation = AsyncHelper.CreateAsyncOperation().Assign(out _startOperation);
-
-        Initialize();
-
-        if (!_isInitialized)
-        {
-            Shutdown(exitCode: -1);
-
-            return;
-        }
-
-        Logger.LogInformation(message: "Starting up...");
-
-        InitializeResources();
-
-        Logger.LogDebug(message: "Resolving main view-model");
-
-        ShellViewModel = ResolveMainViewModel(Services);
-
-        if (ShellViewModel is IDeactivate deactivate)
-        {
-            deactivate.Deactivated += OnShellViewModelDeactivatedAsync;
-        }
-
-        Logger.LogDebug(message: "Resolving main view");
-
-        await Services.GetRequiredService<INotificationService>().ActivateAsync(operation.Token);
-        await Services.GetRequiredService<IDialogService>().ActivateAsync(operation.Token);
-
-        var mainView = ResolveMainWindow(Services);
-        mainView.DataContext = ShellViewModel;
-        mainView.Closing += OnWindowClosing;
-        mainView.Show();
-
-        await OnStartupAsync();
-
-        Logger.LogInformation(message: "Startup complete");
     }
 }

@@ -34,7 +34,7 @@ public interface IActivate
     bool IsActive { get; }
 
     /// <summary>Activates this instance.</summary>
-    /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+    /// <param name="cancellationToken">(Optional) The cancellation token to cancel the operation.</param>
     /// <returns>A <see cref="ValueTask"/> representing the asynchronous operation.</returns>
     ValueTask ActivateAsync(CancellationToken cancellationToken = default);
 }

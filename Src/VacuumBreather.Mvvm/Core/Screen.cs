@@ -14,8 +14,6 @@ namespace VacuumBreather.Mvvm.Core;
 public abstract class Screen : ViewAware, IScreen, IChild, IHaveAsynchronousOperations
 {
     private IAsyncOperation? _initializationOperation;
-    private IAsyncOperation? _activateOperation;
-    private IAsyncOperation? _deactivateOperation;
 
     private string _displayName;
     private bool _isActive;
@@ -106,12 +104,9 @@ public abstract class Screen : ViewAware, IScreen, IChild, IHaveAsynchronousOper
             return;
         }
 
-        // Guard against multiple simultaneous executions.
-        await AsyncHelper.AwaitCompletionAsync(_activateOperation, cancellationToken);
+        IsActive = true;
 
-        using var operation = AsyncHelper.CreateAsyncOperation(cancellationToken)
-                                         .CancelWhenDeactivating(this)
-                                         .Assign(out _activateOperation);
+        using var operation = AsyncHelper.CreateAsyncOperation(cancellationToken).CancelWhenDeactivating(this);
 
         await RaiseActivatingAsync(!IsInitialized, operation.Token);
 
@@ -125,13 +120,6 @@ public abstract class Screen : ViewAware, IScreen, IChild, IHaveAsynchronousOper
 
             Logger.LogDebug(message: "Initializing {Screen}...", GetType().Name);
 
-            if (initOperation.IsCancellationRequested)
-            {
-                Logger.LogDebug(message: "Initialization of {Screen} canceled", GetType().Name);
-
-                return;
-            }
-
             await OnInitializeAsync(initOperation.Token);
 
             IsInitialized = initialized = true;
@@ -139,17 +127,7 @@ public abstract class Screen : ViewAware, IScreen, IChild, IHaveAsynchronousOper
 
         Logger.LogTrace(message: "Activating {Screen}...", GetType().Name);
 
-        if (operation.IsCancellationRequested)
-        {
-            Logger.LogTrace(message: "Activation of {Screen} canceled", GetType().Name);
-
-            return;
-        }
-
         await OnActivateAsync(operation.Token);
-
-        IsActive = true;
-
         await RaiseActivatedAsync(initialized, operation.Token);
 
         Logger.LogTrace(message: "Activated {Screen}", GetType().Name);
@@ -163,28 +141,18 @@ public abstract class Screen : ViewAware, IScreen, IChild, IHaveAsynchronousOper
     /// <inheritdoc/>
     public async ValueTask DeactivateAsync(bool close, CancellationToken cancellationToken = default)
     {
-        // Guard against multiple simultaneous executions.
-        await AsyncHelper.AwaitCompletionAsync(_deactivateOperation, cancellationToken);
-
-        using var operation = AsyncHelper.CreateAsyncOperation(cancellationToken)
-                                         .CancelWhenActivating(this)
-                                         .Assign(out _deactivateOperation);
-
         if (!IsInitialized)
         {
             // We do not allow deactivation before initialization.
             await AsyncHelper.AwaitCompletionAsync(_initializationOperation, cancellationToken);
         }
 
-        if (operation.IsCancellationRequested)
-        {
-            Logger.LogTrace(message: "Deactivation of {Screen} canceled", GetType().Name);
-
-            return;
-        }
-
         if (IsActive || (IsInitialized && close))
         {
+            IsActive = false;
+
+            using var operation = AsyncHelper.CreateAsyncOperation(cancellationToken).CancelWhenActivating(this);
+
             if (close)
             {
                 Logger.LogDebug(message: "Closing {Screen}...", GetType().Name);
@@ -196,9 +164,6 @@ public abstract class Screen : ViewAware, IScreen, IChild, IHaveAsynchronousOper
 
             await RaiseDeactivatingAsync(close, operation.Token);
             await OnDeactivateAsync(close, operation.Token);
-
-            IsActive = false;
-
             await RaiseDeactivatedAsync(close, operation.Token);
 
             if (close)

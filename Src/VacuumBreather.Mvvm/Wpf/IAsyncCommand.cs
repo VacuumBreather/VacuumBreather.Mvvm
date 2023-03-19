@@ -1,10 +1,11 @@
 ﻿using System.Threading;
 using System.Threading.Tasks;
+using VacuumBreather.Mvvm.Core;
 
 namespace VacuumBreather.Mvvm.Wpf;
 
 /// <summary>Defines a command which executes asynchronously.</summary>
-public interface IAsyncCommand : IRaisingCommand
+public interface IAsyncCommand : IRaisingCommand, ICancellable
 {
     /// <summary>Defines the method that determines whether the command can execute in its current state.</summary>
     /// <returns><see langword="true"/> if this command can be executed; otherwise, <see langword="false"/>.</returns>
@@ -18,7 +19,7 @@ public interface IAsyncCommand : IRaisingCommand
 
 /// <summary>Defines a command which executes asynchronously.</summary>
 /// <typeparam name="T">The type of the command parameter.</typeparam>
-public interface IAsyncCommand<in T> : IRaisingCommand
+public interface IAsyncCommand<in T> : IRaisingCommand, ICancellable
 {
     /// <summary>Defines the method that determines whether the command can execute in its current state.</summary>
     /// <param name="parameter">

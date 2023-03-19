@@ -2,10 +2,8 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Windows.Threading;
 using CommunityToolkit.Diagnostics;
 using JetBrains.Annotations;
-using Microsoft.Extensions.Hosting;
 using Microsoft.VisualStudio.Threading;
 
 namespace VacuumBreather.Mvvm.Core;
@@ -14,90 +12,30 @@ namespace VacuumBreather.Mvvm.Core;
 [PublicAPI]
 public static class ThreadHelper
 {
+    private static CancellationTokenRegistration? _cleanupRegistration;
+    private static CancellationTokenSource _disposeCancellationTokenSource = new();
+
+    private static JoinableTaskCollection? _joinableTaskCollection;
+    private static JoinableTaskContext? _joinableTaskContext;
+    private static JoinableTaskFactory? _joinableTaskFactory;
+
     /// <summary>Gets a value indicating whether the called is on the UI thread.</summary>
     /// <value><see langword="true"/> if the called is on the UI thread; otherwise, <see langword="false"/>.</value>
-    public static bool IsOnUIThread => !CanUseDispatcher || (IsInitialized && JoinableTaskContext!.IsOnMainThread);
+    public static bool IsOnUIThread => JoinableTaskContext.IsOnMainThread;
 
-    private static bool CanUseDispatcher { get; set; }
+    private static JoinableTaskContext JoinableTaskContext => _joinableTaskContext ?? new JoinableTaskContext();
 
-    private static Dispatcher? Dispatcher { get; set; }
-
-    private static bool IsInitialized { get; set; }
-
-    private static JoinableTaskCollection? JoinableTaskCollection { get; set; }
-
-    private static JoinableTaskContext? JoinableTaskContext { get; set; }
-
-    private static JoinableTaskFactory? JoinableTaskFactory { get; set; }
-
-    /// <summary>Cleans up all unfinished async work. Consecutive calls will have no effect.</summary>
-    /// <param name="cleanupTimeout">
-    ///     (Optional) The <see cref="TimeSpan"/> to wait before canceling any remaining tasks. The
-    ///     default value is zero.
-    /// </param>
-    /// <param name="exceptionHandler">
-    ///     (Optional) The handler for any exceptions that are caught during cleanup. The default
-    ///     value is <see langword="null"/>.
-    /// </param>
-    public static void CleanUp(TimeSpan cleanupTimeout = default, Action<Exception>? exceptionHandler = default)
-    {
-        if (!IsInitialized)
-        {
-            return;
-        }
-
-        IsInitialized = false;
-
-        try
-        {
-            if (JoinableTaskCollection is not null)
-            {
-                using var cts = new CancellationTokenSource();
-                using var context = new JoinableTaskContext(Dispatcher!.Thread);
-
-                var token = cts.Token;
-                var taskFactory = new JoinableTaskFactory(context);
-
-                cts.CancelAfter(cleanupTimeout);
-                taskFactory.Run(() => JoinableTaskCollection.JoinTillEmptyAsync(token));
-            }
-        }
-        catch (OperationCanceledException)
-        {
-            // This exception is expected because we signaled the cancellation token
-        }
-        catch (AggregateException exception)
-        {
-            try
-            {
-                // Ignore AggregateException containing only OperationCanceledException
-                exception.Handle(inner => inner is OperationCanceledException);
-            }
-            catch (AggregateException aggregateException)
-            {
-                exceptionHandler?.Invoke(aggregateException);
-            }
-        }
-        catch (Exception ex) when (exceptionHandler is not null)
-        {
-            exceptionHandler.Invoke(ex);
-        }
-        finally
-        {
-            JoinableTaskContext?.Dispose();
-            JoinableTaskContext = null;
-            JoinableTaskCollection = null;
-            JoinableTaskFactory = null;
-            Dispatcher = null;
-        }
-    }
+    private static JoinableTaskFactory JoinableTaskFactory => _joinableTaskFactory ?? JoinableTaskContext.Factory;
 
     /// <summary>
-    ///     Passes a <see cref="IHostApplicationLifetime"/> which provides the events to trigger cleanup of the
-    ///     <see cref="ThreadHelper"/>. Consecutive calls will have no effect.
+    ///     Provides a <see cref="JoinableTaskContext"/> representing the main thread synchronization context and a
+    ///     <see cref="CancellationToken"/> which provides the events to trigger cleanup of the <see cref="ThreadHelper"/>.
     /// </summary>
-    /// <param name="mainThreadDispatcher">The main thread dispatcher.</param>
-    /// <param name="applicationLifetime">The application lifetime to trigger the cleanup process.</param>
+    /// <param name="mainThreadContext">The <see cref="JoinableTaskContext"/> which operates on the main thread.</param>
+    /// <param name="cleanupTriggerToken">
+    ///     A <see cref="CancellationToken"/> which, when cancelled, will trigger the cleanup
+    ///     process.
+    /// </param>
     /// <param name="cleanupTimeout">
     ///     (Optional) The <see cref="TimeSpan"/> to wait before canceling any remaining tasks. The
     ///     default value is zero.
@@ -106,30 +44,19 @@ public static class ThreadHelper
     ///     (Optional) The handler for any exceptions that are caught during cleanup. The default
     ///     value is <see langword="null"/>.
     /// </param>
-    public static void Initialize(Dispatcher mainThreadDispatcher,
-                                  IHostApplicationLifetime applicationLifetime,
+    public static void Initialize(JoinableTaskContext mainThreadContext,
+                                  CancellationToken cleanupTriggerToken,
                                   TimeSpan cleanupTimeout = default,
                                   Action<Exception>? exceptionHandler = default)
     {
-        if (IsInitialized)
-        {
-            return;
-        }
+        CleanUp();
 
-        applicationLifetime.ApplicationStopping.Register(() => CleanUp(cleanupTimeout, exceptionHandler));
+        _disposeCancellationTokenSource = new CancellationTokenSource();
+        _cleanupRegistration = cleanupTriggerToken.Register(() => CleanUp(cleanupTimeout, exceptionHandler));
 
-        Dispatcher = mainThreadDispatcher;
-
-        JoinableTaskContext?.Dispose();
-
-        JoinableTaskContext =
-            new JoinableTaskContext(Dispatcher.Thread, new DispatcherSynchronizationContext(Dispatcher));
-
-        JoinableTaskCollection = JoinableTaskContext.CreateCollection();
-        JoinableTaskFactory = JoinableTaskContext.CreateFactory(JoinableTaskCollection);
-
-        CanUseDispatcher = true;
-        IsInitialized = true;
+        _joinableTaskContext = mainThreadContext;
+        _joinableTaskCollection = _joinableTaskContext.CreateCollection();
+        _joinableTaskFactory = _joinableTaskContext.CreateFactory(_joinableTaskCollection);
     }
 
     /// <summary>
@@ -141,30 +68,33 @@ public static class ThreadHelper
     ///     (Optional) The <see cref="JoinableTaskCreationOptions"/> used to customize the task's
     ///     behavior.
     /// </param>
+    /// <param name="cancellationToken">(Optional) The cancellation token to cancel operation.</param>
     [SuppressMessage(category: "Usage",
                      checkId: "VSTHRD002:Avoid problematic synchronous waits",
                      Justification = "Only used for uninitialized state, which is mostly testing.")]
     public static void RunOnBackgroundThread(this Action operation,
                                              JoinableTaskCreationOptions creationOptions =
-                                                 JoinableTaskCreationOptions.None)
+                                                 JoinableTaskCreationOptions.None,
+                                             CancellationToken cancellationToken = default)
     {
-        if (!CanUseDispatcher)
-        {
-            Task.Run(operation).Wait();
-
-            return;
-        }
-
         ThrowIfDisposed();
 
-        JoinableTaskFactory!.Run(async () =>
-                                 {
-                                     // Switch to background thread.
-                                     await TaskScheduler.Default;
+        JoinableTaskFactory.Run(async () =>
+                                {
+                                    using var cts =
+                                        CancellationTokenSource.CreateLinkedTokenSource(
+                                            _disposeCancellationTokenSource.Token,
+                                            cancellationToken);
 
-                                     operation();
-                                 },
-                                 creationOptions);
+                                    await Task.Yield();
+
+                                    // Switch to background thread.
+                                    await TaskScheduler.Default;
+                                    cts.Token.ThrowIfCancellationRequested();
+
+                                    operation();
+                                },
+                                creationOptions);
     }
 
     /// <summary>
@@ -176,30 +106,33 @@ public static class ThreadHelper
     ///     (Optional) The <see cref="JoinableTaskCreationOptions"/> used to customize the task's
     ///     behavior.
     /// </param>
+    /// <param name="cancellationToken">(Optional) The cancellation token to cancel operation.</param>
     [SuppressMessage(category: "Usage",
                      checkId: "VSTHRD002:Avoid problematic synchronous waits",
                      Justification = "Only used for uninitialized state, which is mostly testing.")]
-    public static void RunOnBackgroundThread(this Func<ValueTask> operation,
+    public static void RunOnBackgroundThread(this Func<CancellationToken, ValueTask> operation,
                                              JoinableTaskCreationOptions creationOptions =
-                                                 JoinableTaskCreationOptions.None)
+                                                 JoinableTaskCreationOptions.None,
+                                             CancellationToken cancellationToken = default)
     {
-        if (!CanUseDispatcher)
-        {
-            Task.Run(async () => await operation()).Wait();
-
-            return;
-        }
-
         ThrowIfDisposed();
 
-        JoinableTaskFactory!.Run(async () =>
-                                 {
-                                     // Switch to background thread.
-                                     await TaskScheduler.Default;
+        JoinableTaskFactory.Run(async () =>
+                                {
+                                    using var cts =
+                                        CancellationTokenSource.CreateLinkedTokenSource(
+                                            _disposeCancellationTokenSource.Token,
+                                            cancellationToken);
 
-                                     await operation();
-                                 },
-                                 creationOptions);
+                                    await Task.Yield();
+
+                                    // Switch to background thread.
+                                    await TaskScheduler.Default;
+                                    cts.Token.ThrowIfCancellationRequested();
+
+                                    await operation(cts.Token);
+                                },
+                                creationOptions);
     }
 
     /// <summary>
@@ -212,6 +145,7 @@ public static class ThreadHelper
     ///     (Optional) The <see cref="JoinableTaskCreationOptions"/> used to customize the task's
     ///     behavior.
     /// </param>
+    /// <param name="cancellationToken">(Optional) The cancellation token to cancel operation.</param>
     /// <returns>The result of the asynchronous operation.</returns>
     [SuppressMessage(category: "Correctness",
                      checkId: "SS034:Use await to get the result of an asynchronous operation",
@@ -219,25 +153,29 @@ public static class ThreadHelper
     [SuppressMessage(category: "Usage",
                      checkId: "VSTHRD002:Avoid problematic synchronous waits",
                      Justification = "Only used for uninitialized state, which is mostly testing.")]
-    public static T RunOnBackgroundThread<T>(this Func<ValueTask<T>> operation,
+    public static T RunOnBackgroundThread<T>(this Func<CancellationToken, ValueTask<T>> operation,
                                              JoinableTaskCreationOptions creationOptions =
-                                                 JoinableTaskCreationOptions.None)
+                                                 JoinableTaskCreationOptions.None,
+                                             CancellationToken cancellationToken = default)
     {
-        if (!CanUseDispatcher)
-        {
-            return Task.Run(async () => await operation()).Result;
-        }
-
         ThrowIfDisposed();
 
-        return JoinableTaskFactory!.Run(async () =>
-                                        {
-                                            // Switch to background thread.
-                                            await TaskScheduler.Default;
+        return JoinableTaskFactory.Run(async () =>
+                                       {
+                                           using var cts =
+                                               CancellationTokenSource.CreateLinkedTokenSource(
+                                                   _disposeCancellationTokenSource.Token,
+                                                   cancellationToken);
 
-                                            return await operation();
-                                        },
-                                        creationOptions);
+                                           await Task.Yield();
+
+                                           // Switch to background thread.
+                                           await TaskScheduler.Default;
+                                           cts.Token.ThrowIfCancellationRequested();
+
+                                           return await operation(cts.Token);
+                                       },
+                                       creationOptions);
     }
 
     /// <summary>
@@ -250,6 +188,7 @@ public static class ThreadHelper
     ///     (Optional) The <see cref="JoinableTaskCreationOptions"/> used to customize the task's
     ///     behavior.
     /// </param>
+    /// <param name="cancellationToken">(Optional) The cancellation token to cancel operation.</param>
     /// <returns>The result of the operation.</returns>
     [SuppressMessage(category: "Correctness",
                      checkId: "SS034:Use await to get the result of an asynchronous operation",
@@ -259,23 +198,27 @@ public static class ThreadHelper
                      Justification = "Only used for uninitialized state, which is mostly testing.")]
     public static T RunOnBackgroundThread<T>(this Func<T> operation,
                                              JoinableTaskCreationOptions creationOptions =
-                                                 JoinableTaskCreationOptions.None)
+                                                 JoinableTaskCreationOptions.None,
+                                             CancellationToken cancellationToken = default)
     {
-        if (!CanUseDispatcher)
-        {
-            return Task.Run(operation).Result;
-        }
-
         ThrowIfDisposed();
 
-        return JoinableTaskFactory!.Run(async () =>
-                                        {
-                                            // Switch to background thread.
-                                            await TaskScheduler.Default;
+        return JoinableTaskFactory.Run(async () =>
+                                       {
+                                           using var cts =
+                                               CancellationTokenSource.CreateLinkedTokenSource(
+                                                   _disposeCancellationTokenSource.Token,
+                                                   cancellationToken);
 
-                                            return operation();
-                                        },
-                                        creationOptions);
+                                           await Task.Yield();
+
+                                           // Switch to background thread.
+                                           await TaskScheduler.Default;
+                                           cts.Token.ThrowIfCancellationRequested();
+
+                                           return operation();
+                                       },
+                                       creationOptions);
     }
 
     /// <summary>Executes the specified operation asynchronously on a background thread and ignores the result.</summary>
@@ -284,16 +227,15 @@ public static class ThreadHelper
     ///     (Optional) The <see cref="JoinableTaskCreationOptions"/> used to customize the task's
     ///     behavior.
     /// </param>
+    /// <param name="cancellationToken">(Optional) The cancellation token to cancel operation.</param>
     public static void RunOnBackgroundThreadAndForget(this Action operation,
                                                       JoinableTaskCreationOptions creationOptions =
-                                                          JoinableTaskCreationOptions.None)
+                                                          JoinableTaskCreationOptions.None,
+                                                      CancellationToken cancellationToken = default)
     {
-        if (CanUseDispatcher)
-        {
-            ThrowIfDisposed();
-        }
+        ThrowIfDisposed();
 
-        operation.RunOnBackgroundThreadAsync(creationOptions).Forget();
+        operation.RunOnBackgroundThreadAsync(creationOptions, cancellationToken).Forget();
     }
 
     /// <summary>Executes the specified asynchronous operation on a background thread and ignores the result.</summary>
@@ -302,16 +244,15 @@ public static class ThreadHelper
     ///     (Optional) The <see cref="JoinableTaskCreationOptions"/> used to customize the task's
     ///     behavior.
     /// </param>
-    public static void RunOnBackgroundThreadAndForget(this Func<ValueTask> operation,
+    /// <param name="cancellationToken">(Optional) The cancellation token to cancel operation.</param>
+    public static void RunOnBackgroundThreadAndForget(this Func<CancellationToken, ValueTask> operation,
                                                       JoinableTaskCreationOptions creationOptions =
-                                                          JoinableTaskCreationOptions.None)
+                                                          JoinableTaskCreationOptions.None,
+                                                      CancellationToken cancellationToken = default)
     {
-        if (CanUseDispatcher)
-        {
-            ThrowIfDisposed();
-        }
+        ThrowIfDisposed();
 
-        operation.RunOnBackgroundThreadAsync(creationOptions).Forget();
+        operation.RunOnBackgroundThreadAsync(creationOptions, cancellationToken).Forget();
     }
 
     /// <summary>Executes the specified asynchronous operation on a background thread and ignores the result.</summary>
@@ -321,16 +262,15 @@ public static class ThreadHelper
     ///     (Optional) The <see cref="JoinableTaskCreationOptions"/> used to customize the task's
     ///     behavior.
     /// </param>
-    public static void RunOnBackgroundThreadAndForget<T>(this Func<ValueTask<T>> operation,
+    /// <param name="cancellationToken">(Optional) The cancellation token to cancel operation.</param>
+    public static void RunOnBackgroundThreadAndForget<T>(this Func<CancellationToken, ValueTask<T>> operation,
                                                          JoinableTaskCreationOptions creationOptions =
-                                                             JoinableTaskCreationOptions.None)
+                                                             JoinableTaskCreationOptions.None,
+                                                         CancellationToken cancellationToken = default)
     {
-        if (CanUseDispatcher)
-        {
-            ThrowIfDisposed();
-        }
+        ThrowIfDisposed();
 
-        operation.RunOnBackgroundThreadAsync(creationOptions).Forget();
+        operation.RunOnBackgroundThreadAsync(creationOptions, cancellationToken).Forget();
     }
 
     /// <summary>Executes the specified operation asynchronously on a background thread and ignores the result.</summary>
@@ -340,16 +280,15 @@ public static class ThreadHelper
     ///     (Optional) The <see cref="JoinableTaskCreationOptions"/> used to customize the task's
     ///     behavior.
     /// </param>
+    /// <param name="cancellationToken">(Optional) The cancellation token to cancel operation.</param>
     public static void RunOnBackgroundThreadAndForget<T>(this Func<T> operation,
                                                          JoinableTaskCreationOptions creationOptions =
-                                                             JoinableTaskCreationOptions.None)
+                                                             JoinableTaskCreationOptions.None,
+                                                         CancellationToken cancellationToken = default)
     {
-        if (CanUseDispatcher)
-        {
-            ThrowIfDisposed();
-        }
+        ThrowIfDisposed();
 
-        operation.RunOnBackgroundThreadAsync(creationOptions).Forget();
+        operation.RunOnBackgroundThreadAsync(creationOptions, cancellationToken).Forget();
     }
 
     /// <summary>Executes the specified operation asynchronously on a background thread.</summary>
@@ -358,28 +297,31 @@ public static class ThreadHelper
     ///     (Optional) The <see cref="JoinableTaskCreationOptions"/> used to customize the task's
     ///     behavior.
     /// </param>
+    /// <param name="cancellationToken">(Optional) The cancellation token to cancel operation.</param>
     /// <returns>A task that represents the asynchronous operation.</returns>
     public static async ValueTask RunOnBackgroundThreadAsync(this Action operation,
                                                              JoinableTaskCreationOptions creationOptions =
-                                                                 JoinableTaskCreationOptions.None)
+                                                                 JoinableTaskCreationOptions.None,
+                                                             CancellationToken cancellationToken = default)
     {
-        if (!CanUseDispatcher)
-        {
-            await Task.Run(operation);
-
-            return;
-        }
-
         ThrowIfDisposed();
 
-        await JoinableTaskFactory!.RunAsync(async () =>
-                                            {
-                                                // Switch to background thread.
-                                                await TaskScheduler.Default;
+        await JoinableTaskFactory.RunAsync(async () =>
+                                           {
+                                               using var cts =
+                                                   CancellationTokenSource.CreateLinkedTokenSource(
+                                                       _disposeCancellationTokenSource.Token,
+                                                       cancellationToken);
 
-                                                operation();
-                                            },
-                                            creationOptions);
+                                               await Task.Yield();
+
+                                               // Switch to background thread.
+                                               await TaskScheduler.Default;
+                                               cts.Token.ThrowIfCancellationRequested();
+
+                                               operation();
+                                           },
+                                           creationOptions);
     }
 
     /// <summary>Executes the specified asynchronous operation on a background thread.</summary>
@@ -388,28 +330,31 @@ public static class ThreadHelper
     ///     (Optional) The <see cref="JoinableTaskCreationOptions"/> used to customize the task's
     ///     behavior.
     /// </param>
+    /// <param name="cancellationToken">(Optional) The cancellation token to cancel operation.</param>
     /// <returns>A task that represents the asynchronous operation.</returns>
-    public static async ValueTask RunOnBackgroundThreadAsync(this Func<ValueTask> operation,
+    public static async ValueTask RunOnBackgroundThreadAsync(this Func<CancellationToken, ValueTask> operation,
                                                              JoinableTaskCreationOptions creationOptions =
-                                                                 JoinableTaskCreationOptions.None)
+                                                                 JoinableTaskCreationOptions.None,
+                                                             CancellationToken cancellationToken = default)
     {
-        if (!CanUseDispatcher)
-        {
-            await Task.Run(async () => await operation());
-
-            return;
-        }
-
         ThrowIfDisposed();
 
-        await JoinableTaskFactory!.RunAsync(async () =>
-                                            {
-                                                // Switch to background thread.
-                                                await TaskScheduler.Default;
+        await JoinableTaskFactory.RunAsync(async () =>
+                                           {
+                                               using var cts =
+                                                   CancellationTokenSource.CreateLinkedTokenSource(
+                                                       _disposeCancellationTokenSource.Token,
+                                                       cancellationToken);
 
-                                                await operation();
-                                            },
-                                            creationOptions);
+                                               await Task.Yield();
+
+                                               // Switch to background thread.
+                                               await TaskScheduler.Default;
+                                               cts.Token.ThrowIfCancellationRequested();
+
+                                               await operation(cts.Token);
+                                           },
+                                           creationOptions);
     }
 
     /// <summary>Executes the specified asynchronous operation on a background thread.</summary>
@@ -419,26 +364,31 @@ public static class ThreadHelper
     ///     (Optional) The <see cref="JoinableTaskCreationOptions"/> used to customize the task's
     ///     behavior.
     /// </param>
+    /// <param name="cancellationToken">(Optional) The cancellation token to cancel operation.</param>
     /// <returns>A task that represents the asynchronous operation.</returns>
-    public static async ValueTask<T> RunOnBackgroundThreadAsync<T>(this Func<ValueTask<T>> operation,
+    public static async ValueTask<T> RunOnBackgroundThreadAsync<T>(this Func<CancellationToken, ValueTask<T>> operation,
                                                                    JoinableTaskCreationOptions creationOptions =
-                                                                       JoinableTaskCreationOptions.None)
+                                                                       JoinableTaskCreationOptions.None,
+                                                                   CancellationToken cancellationToken = default)
     {
-        if (!CanUseDispatcher)
-        {
-            return await Task.Run(async () => await operation());
-        }
-
         ThrowIfDisposed();
 
-        return await JoinableTaskFactory!.RunAsync(async () =>
-                                                   {
-                                                       // Switch to background thread.
-                                                       await TaskScheduler.Default;
+        return await JoinableTaskFactory.RunAsync(async () =>
+                                                  {
+                                                      using var cts =
+                                                          CancellationTokenSource.CreateLinkedTokenSource(
+                                                              _disposeCancellationTokenSource.Token,
+                                                              cancellationToken);
 
-                                                       return await operation();
-                                                   },
-                                                   creationOptions);
+                                                      await Task.Yield();
+
+                                                      // Switch to background thread.
+                                                      await TaskScheduler.Default;
+                                                      cts.Token.ThrowIfCancellationRequested();
+
+                                                      return await operation(cts.Token);
+                                                  },
+                                                  creationOptions);
     }
 
     /// <summary>Executes the specified operation asynchronously on a background thread.</summary>
@@ -448,26 +398,31 @@ public static class ThreadHelper
     ///     (Optional) The <see cref="JoinableTaskCreationOptions"/> used to customize the task's
     ///     behavior.
     /// </param>
+    /// <param name="cancellationToken">(Optional) The cancellation token to cancel operation.</param>
     /// <returns>A task that represents the asynchronous operation. The task result contains the result of the operation.</returns>
     public static async ValueTask<T> RunOnBackgroundThreadAsync<T>(this Func<T> operation,
                                                                    JoinableTaskCreationOptions creationOptions =
-                                                                       JoinableTaskCreationOptions.None)
+                                                                       JoinableTaskCreationOptions.None,
+                                                                   CancellationToken cancellationToken = default)
     {
-        if (!CanUseDispatcher)
-        {
-            return await Task.Run(operation);
-        }
-
         ThrowIfDisposed();
 
-        return await JoinableTaskFactory!.RunAsync(async () =>
-                                                   {
-                                                       // Switch to background thread.
-                                                       await TaskScheduler.Default;
+        return await JoinableTaskFactory.RunAsync(async () =>
+                                                  {
+                                                      using var cts =
+                                                          CancellationTokenSource.CreateLinkedTokenSource(
+                                                              _disposeCancellationTokenSource.Token,
+                                                              cancellationToken);
 
-                                                       return operation();
-                                                   },
-                                                   creationOptions);
+                                                      await Task.Yield();
+
+                                                      // Switch to background thread.
+                                                      await TaskScheduler.Default;
+                                                      cts.Token.ThrowIfCancellationRequested();
+
+                                                      return operation();
+                                                  },
+                                                  creationOptions);
     }
 
     /// <summary>
@@ -479,26 +434,29 @@ public static class ThreadHelper
     ///     (Optional) The <see cref="JoinableTaskCreationOptions"/> used to customize the task's
     ///     behavior.
     /// </param>
+    /// <param name="cancellationToken">(Optional) The cancellation token to cancel operation.</param>
     public static void RunOnUIThread(this Action operation,
-                                     JoinableTaskCreationOptions creationOptions = JoinableTaskCreationOptions.None)
+                                     JoinableTaskCreationOptions creationOptions = JoinableTaskCreationOptions.None,
+                                     CancellationToken cancellationToken = default)
     {
-        if (!CanUseDispatcher)
-        {
-            operation();
-
-            return;
-        }
-
         ThrowIfDisposed();
 
-        JoinableTaskFactory!.Run(async () =>
-                                 {
-                                     // Switch to UI thread.
-                                     await JoinableTaskFactory.SwitchToMainThreadAsync();
+        JoinableTaskFactory.Run(async () =>
+                                {
+                                    using var cts =
+                                        CancellationTokenSource.CreateLinkedTokenSource(
+                                            _disposeCancellationTokenSource.Token,
+                                            cancellationToken);
 
-                                     operation();
-                                 },
-                                 creationOptions);
+                                    await Task.Yield();
+
+                                    // Switch to UI thread.
+                                    await JoinableTaskFactory.SwitchToMainThreadAsync(cts.Token);
+                                    cts.Token.ThrowIfCancellationRequested();
+
+                                    operation();
+                                },
+                                creationOptions);
     }
 
     /// <summary>
@@ -510,28 +468,32 @@ public static class ThreadHelper
     ///     (Optional) The <see cref="JoinableTaskCreationOptions"/> used to customize the task's
     ///     behavior.
     /// </param>
+    /// <param name="cancellationToken">(Optional) The cancellation token to cancel operation.</param>
     [SuppressMessage(category: "Usage",
                      checkId: "VSTHRD002:Avoid problematic synchronous waits",
                      Justification = "Only used for uninitialized state, which is mostly testing.")]
-    public static void RunOnUIThread(this Func<ValueTask> operation,
-                                     JoinableTaskCreationOptions creationOptions = JoinableTaskCreationOptions.None)
+    public static void RunOnUIThread(this Func<CancellationToken, ValueTask> operation,
+                                     JoinableTaskCreationOptions creationOptions = JoinableTaskCreationOptions.None,
+                                     CancellationToken cancellationToken = default)
     {
-        if (!CanUseDispatcher)
-        {
-            Task.Run(async () => await operation()).Wait();
-
-            return;
-        }
-
         ThrowIfDisposed();
 
-        JoinableTaskFactory!.Run(async () =>
-                                 {
-                                     // Switch to UI thread.
-                                     await JoinableTaskFactory.SwitchToMainThreadAsync();
-                                     await operation();
-                                 },
-                                 creationOptions);
+        JoinableTaskFactory.Run(async () =>
+                                {
+                                    using var cts =
+                                        CancellationTokenSource.CreateLinkedTokenSource(
+                                            _disposeCancellationTokenSource.Token,
+                                            cancellationToken);
+
+                                    await Task.Yield();
+
+                                    // Switch to UI thread.
+                                    await JoinableTaskFactory.SwitchToMainThreadAsync(cts.Token);
+                                    cts.Token.ThrowIfCancellationRequested();
+
+                                    await operation(cts.Token);
+                                },
+                                creationOptions);
     }
 
     /// <summary>
@@ -544,6 +506,7 @@ public static class ThreadHelper
     ///     (Optional) The <see cref="JoinableTaskCreationOptions"/> used to customize the task's
     ///     behavior.
     /// </param>
+    /// <param name="cancellationToken">(Optional) The cancellation token to cancel operation.</param>
     /// <returns>The result of the asynchronous operation.</returns>
     [SuppressMessage(category: "Correctness",
                      checkId: "SS034:Use await to get the result of an asynchronous operation",
@@ -551,24 +514,28 @@ public static class ThreadHelper
     [SuppressMessage(category: "Usage",
                      checkId: "VSTHRD002:Avoid problematic synchronous waits",
                      Justification = "Only used for uninitialized state, which is mostly testing.")]
-    public static T RunOnUIThread<T>(this Func<ValueTask<T>> operation,
-                                     JoinableTaskCreationOptions creationOptions = JoinableTaskCreationOptions.None)
+    public static T RunOnUIThread<T>(this Func<CancellationToken, ValueTask<T>> operation,
+                                     JoinableTaskCreationOptions creationOptions = JoinableTaskCreationOptions.None,
+                                     CancellationToken cancellationToken = default)
     {
-        if (!CanUseDispatcher)
-        {
-            return Task.Run(async () => await operation()).Result;
-        }
-
         ThrowIfDisposed();
 
-        return JoinableTaskFactory!.Run(async () =>
-                                        {
-                                            // Switch to UI thread.
-                                            await JoinableTaskFactory.SwitchToMainThreadAsync();
+        return JoinableTaskFactory.Run(async () =>
+                                       {
+                                           using var cts =
+                                               CancellationTokenSource.CreateLinkedTokenSource(
+                                                   _disposeCancellationTokenSource.Token,
+                                                   cancellationToken);
 
-                                            return await operation();
-                                        },
-                                        creationOptions);
+                                           await Task.Yield();
+
+                                           // Switch to UI thread.
+                                           await JoinableTaskFactory.SwitchToMainThreadAsync(cts.Token);
+                                           cts.Token.ThrowIfCancellationRequested();
+
+                                           return await operation(cts.Token);
+                                       },
+                                       creationOptions);
     }
 
     /// <summary>
@@ -581,25 +548,30 @@ public static class ThreadHelper
     ///     (Optional) The <see cref="JoinableTaskCreationOptions"/> used to customize the task's
     ///     behavior.
     /// </param>
+    /// <param name="cancellationToken">(Optional) The cancellation token to cancel operation.</param>
     /// <returns>The result of the operation.</returns>
     public static T RunOnUIThread<T>(this Func<T> operation,
-                                     JoinableTaskCreationOptions creationOptions = JoinableTaskCreationOptions.None)
+                                     JoinableTaskCreationOptions creationOptions = JoinableTaskCreationOptions.None,
+                                     CancellationToken cancellationToken = default)
     {
-        if (!CanUseDispatcher)
-        {
-            return operation();
-        }
-
         ThrowIfDisposed();
 
-        return JoinableTaskFactory!.Run(async () =>
-                                        {
-                                            // Switch to UI thread.
-                                            await JoinableTaskFactory.SwitchToMainThreadAsync();
+        return JoinableTaskFactory.Run(async () =>
+                                       {
+                                           using var cts =
+                                               CancellationTokenSource.CreateLinkedTokenSource(
+                                                   _disposeCancellationTokenSource.Token,
+                                                   cancellationToken);
 
-                                            return operation();
-                                        },
-                                        creationOptions);
+                                           await Task.Yield();
+
+                                           // Switch to UI thread.
+                                           await JoinableTaskFactory.SwitchToMainThreadAsync(cts.Token);
+                                           cts.Token.ThrowIfCancellationRequested();
+
+                                           return operation();
+                                       },
+                                       creationOptions);
     }
 
     /// <summary>Executes the specified operation asynchronously on the UI thread and ignores the result.</summary>
@@ -608,16 +580,17 @@ public static class ThreadHelper
     ///     (Optional) The <see cref="JoinableTaskCreationOptions"/> used to customize the task's
     ///     behavior.
     /// </param>
+    /// <param name="cancellationToken">(Optional) The cancellation token to cancel operation.</param>
     public static void RunOnUIThreadAndForget(this Action operation,
                                               JoinableTaskCreationOptions creationOptions =
-                                                  JoinableTaskCreationOptions.None)
+                                                  JoinableTaskCreationOptions.None,
+                                              CancellationToken cancellationToken = default)
     {
-        if (CanUseDispatcher)
-        {
-            ThrowIfDisposed();
-        }
+        ThrowIfDisposed();
 
-        operation.RunOnUIThreadAsync(creationOptions).Forget();
+        using var relevance = JoinableTaskContext.SuppressRelevance();
+
+        operation.RunOnUIThreadAsync(creationOptions, cancellationToken).Forget();
     }
 
     /// <summary>Executes the specified asynchronous operation on the UI thread and ignores the result.</summary>
@@ -626,16 +599,17 @@ public static class ThreadHelper
     ///     (Optional) The <see cref="JoinableTaskCreationOptions"/> used to customize the task's
     ///     behavior.
     /// </param>
-    public static void RunOnUIThreadAndForget(this Func<ValueTask> operation,
+    /// <param name="cancellationToken">(Optional) The cancellation token to cancel operation.</param>
+    public static void RunOnUIThreadAndForget(this Func<CancellationToken, ValueTask> operation,
                                               JoinableTaskCreationOptions creationOptions =
-                                                  JoinableTaskCreationOptions.None)
+                                                  JoinableTaskCreationOptions.None,
+                                              CancellationToken cancellationToken = default)
     {
-        if (CanUseDispatcher)
-        {
-            ThrowIfDisposed();
-        }
+        ThrowIfDisposed();
 
-        operation.RunOnUIThreadAsync(creationOptions).Forget();
+        using var relevance = JoinableTaskContext.SuppressRelevance();
+
+        operation.RunOnUIThreadAsync(creationOptions, cancellationToken).Forget();
     }
 
     /// <summary>Executes the specified asynchronous operation on the UI thread and ignores the result.</summary>
@@ -645,16 +619,17 @@ public static class ThreadHelper
     ///     (Optional) The <see cref="JoinableTaskCreationOptions"/> used to customize the task's
     ///     behavior.
     /// </param>
-    public static void RunOnUIThreadAndForget<T>(this Func<ValueTask<T>> operation,
+    /// <param name="cancellationToken">(Optional) The cancellation token to cancel operation.</param>
+    public static void RunOnUIThreadAndForget<T>(this Func<CancellationToken, ValueTask<T>> operation,
                                                  JoinableTaskCreationOptions creationOptions =
-                                                     JoinableTaskCreationOptions.None)
+                                                     JoinableTaskCreationOptions.None,
+                                                 CancellationToken cancellationToken = default)
     {
-        if (CanUseDispatcher)
-        {
-            ThrowIfDisposed();
-        }
+        ThrowIfDisposed();
 
-        operation.RunOnUIThreadAsync(creationOptions).Forget();
+        using var relevance = JoinableTaskContext.SuppressRelevance();
+
+        operation.RunOnUIThreadAsync(creationOptions, cancellationToken).Forget();
     }
 
     /// <summary>Executes the specified operation asynchronously on the UI thread and ignores the result.</summary>
@@ -664,16 +639,17 @@ public static class ThreadHelper
     ///     (Optional) The <see cref="JoinableTaskCreationOptions"/> used to customize the task's
     ///     behavior.
     /// </param>
+    /// <param name="cancellationToken">(Optional) The cancellation token to cancel operation.</param>
     public static void RunOnUIThreadAndForget<T>(this Func<T> operation,
                                                  JoinableTaskCreationOptions creationOptions =
-                                                     JoinableTaskCreationOptions.None)
+                                                     JoinableTaskCreationOptions.None,
+                                                 CancellationToken cancellationToken = default)
     {
-        if (CanUseDispatcher)
-        {
-            ThrowIfDisposed();
-        }
+        ThrowIfDisposed();
 
-        operation.RunOnUIThreadAsync(creationOptions).Forget();
+        using var relevance = JoinableTaskContext.SuppressRelevance();
+
+        operation.RunOnUIThreadAsync(creationOptions, cancellationToken).Forget();
     }
 
     /// <summary>Executes the specified operation asynchronously on the UI thread.</summary>
@@ -682,28 +658,31 @@ public static class ThreadHelper
     ///     (Optional) The <see cref="JoinableTaskCreationOptions"/> used to customize the task's
     ///     behavior.
     /// </param>
+    /// <param name="cancellationToken">(Optional) The cancellation token to cancel operation.</param>
     /// <returns>A task that represents the asynchronous operation.</returns>
     public static async ValueTask RunOnUIThreadAsync(this Action operation,
                                                      JoinableTaskCreationOptions creationOptions =
-                                                         JoinableTaskCreationOptions.None)
+                                                         JoinableTaskCreationOptions.None,
+                                                     CancellationToken cancellationToken = default)
     {
-        if (!CanUseDispatcher)
-        {
-            await Task.Run(operation);
-
-            return;
-        }
-
         ThrowIfDisposed();
 
-        await JoinableTaskFactory!.RunAsync(async () =>
-                                            {
-                                                // Switch to UI thread.
-                                                await JoinableTaskFactory.SwitchToMainThreadAsync();
+        await JoinableTaskFactory.RunAsync(async () =>
+                                           {
+                                               using var cts =
+                                                   CancellationTokenSource.CreateLinkedTokenSource(
+                                                       _disposeCancellationTokenSource.Token,
+                                                       cancellationToken);
 
-                                                operation();
-                                            },
-                                            creationOptions);
+                                               await Task.Yield();
+
+                                               // Switch to UI thread.
+                                               await JoinableTaskFactory.SwitchToMainThreadAsync(cts.Token);
+                                               cts.Token.ThrowIfCancellationRequested();
+
+                                               operation();
+                                           },
+                                           creationOptions);
     }
 
     /// <summary>Executes the specified asynchronous operation on the UI thread.</summary>
@@ -712,27 +691,31 @@ public static class ThreadHelper
     ///     (Optional) The <see cref="JoinableTaskCreationOptions"/> used to customize the task's
     ///     behavior.
     /// </param>
+    /// <param name="cancellationToken">(Optional) The cancellation token to cancel operation.</param>
     /// <returns>A task that represents the asynchronous operation.</returns>
-    public static async ValueTask RunOnUIThreadAsync(this Func<ValueTask> operation,
+    public static async ValueTask RunOnUIThreadAsync(this Func<CancellationToken, ValueTask> operation,
                                                      JoinableTaskCreationOptions creationOptions =
-                                                         JoinableTaskCreationOptions.None)
+                                                         JoinableTaskCreationOptions.None,
+                                                     CancellationToken cancellationToken = default)
     {
-        if (!CanUseDispatcher)
-        {
-            await Task.Run(async () => await operation());
-
-            return;
-        }
-
         ThrowIfDisposed();
 
-        await JoinableTaskFactory!.RunAsync(async () =>
-                                            {
-                                                // Switch to UI thread.
-                                                await JoinableTaskFactory.SwitchToMainThreadAsync();
-                                                await operation();
-                                            },
-                                            creationOptions);
+        await JoinableTaskFactory.RunAsync(async () =>
+                                           {
+                                               using var cts =
+                                                   CancellationTokenSource.CreateLinkedTokenSource(
+                                                       _disposeCancellationTokenSource.Token,
+                                                       cancellationToken);
+
+                                               await Task.Yield();
+
+                                               // Switch to UI thread.
+                                               await JoinableTaskFactory.SwitchToMainThreadAsync(cts.Token);
+                                               cts.Token.ThrowIfCancellationRequested();
+
+                                               await operation(cts.Token);
+                                           },
+                                           creationOptions);
     }
 
     /// <summary>Executes the specified asynchronous operation on the UI thread.</summary>
@@ -742,26 +725,31 @@ public static class ThreadHelper
     ///     (Optional) The <see cref="JoinableTaskCreationOptions"/> used to customize the task's
     ///     behavior.
     /// </param>
+    /// <param name="cancellationToken">(Optional) The cancellation token to cancel operation.</param>
     /// <returns>A task that represents the asynchronous operation. The task result contains the result of the operation.</returns>
-    public static async ValueTask<T> RunOnUIThreadAsync<T>(this Func<ValueTask<T>> operation,
+    public static async ValueTask<T> RunOnUIThreadAsync<T>(this Func<CancellationToken, ValueTask<T>> operation,
                                                            JoinableTaskCreationOptions creationOptions =
-                                                               JoinableTaskCreationOptions.None)
+                                                               JoinableTaskCreationOptions.None,
+                                                           CancellationToken cancellationToken = default)
     {
-        if (!CanUseDispatcher)
-        {
-            return await Task.Run(async () => await operation());
-        }
-
         ThrowIfDisposed();
 
-        return await JoinableTaskFactory!.RunAsync(async () =>
-                                                   {
-                                                       // Switch to UI thread.
-                                                       await JoinableTaskFactory.SwitchToMainThreadAsync();
+        return await JoinableTaskFactory.RunAsync(async () =>
+                                                  {
+                                                      using var cts =
+                                                          CancellationTokenSource.CreateLinkedTokenSource(
+                                                              _disposeCancellationTokenSource.Token,
+                                                              cancellationToken);
 
-                                                       return await operation();
-                                                   },
-                                                   creationOptions);
+                                                      await Task.Yield();
+
+                                                      // Switch to UI thread.
+                                                      await JoinableTaskFactory.SwitchToMainThreadAsync(cts.Token);
+                                                      cts.Token.ThrowIfCancellationRequested();
+
+                                                      return await operation(cts.Token);
+                                                  },
+                                                  creationOptions);
     }
 
     /// <summary>Executes the specified operation asynchronously on the UI thread.</summary>
@@ -771,45 +759,50 @@ public static class ThreadHelper
     ///     (Optional) The <see cref="JoinableTaskCreationOptions"/> used to customize the task's
     ///     behavior.
     /// </param>
+    /// <param name="cancellationToken">(Optional) The cancellation token to cancel operation.</param>
     /// <returns>A task that represents the asynchronous operation. The task result contains the result of the operation.</returns>
     public static async ValueTask<T> RunOnUIThreadAsync<T>(this Func<T> operation,
                                                            JoinableTaskCreationOptions creationOptions =
-                                                               JoinableTaskCreationOptions.None)
+                                                               JoinableTaskCreationOptions.None,
+                                                           CancellationToken cancellationToken = default)
     {
-        if (!CanUseDispatcher)
-        {
-            return await Task.Run(operation);
-        }
-
         ThrowIfDisposed();
 
-        return await JoinableTaskFactory!.RunAsync(async () =>
-                                                   {
-                                                       // Switch to UI thread.
-                                                       await JoinableTaskFactory.SwitchToMainThreadAsync();
+        return await JoinableTaskFactory.RunAsync(async () =>
+                                                  {
+                                                      using var cts =
+                                                          CancellationTokenSource.CreateLinkedTokenSource(
+                                                              _disposeCancellationTokenSource.Token,
+                                                              cancellationToken);
 
-                                                       return operation();
-                                                   },
-                                                   creationOptions);
+                                                      await Task.Yield();
+
+                                                      // Switch to UI thread.
+                                                      await JoinableTaskFactory.SwitchToMainThreadAsync(cts.Token);
+                                                      cts.Token.ThrowIfCancellationRequested();
+
+                                                      return operation();
+                                                  },
+                                                  creationOptions);
     }
 
     /// <summary>Throws an <see cref="InvalidOperationException"/> if not called from the UI thread.</summary>
-    /// <param name="message">The exception message.</param>
-    public static void ThrowIfNotOnUIThread(string message)
+    /// <param name="message">(Optional) The exception message.</param>
+    public static void ThrowIfNotOnUIThread(string? message = default)
     {
-        if (CanUseDispatcher && !IsOnUIThread)
+        if (!IsOnUIThread)
         {
-            ThrowHelper.ThrowInvalidOperationException(message);
+            ThrowHelper.ThrowInvalidOperationException(message ?? "The operation needs to run on the main thread.");
         }
     }
 
     /// <summary>Throws an <see cref="InvalidOperationException"/> if called from the UI thread.</summary>
-    /// <param name="message">The exception message.</param>
-    public static void ThrowIfOnUIThread(string message)
+    /// <param name="message">(Optional) The exception message.</param>
+    public static void ThrowIfOnUIThread(string? message = default)
     {
-        if (CanUseDispatcher && IsOnUIThread)
+        if (IsOnUIThread)
         {
-            ThrowHelper.ThrowInvalidOperationException(message);
+            ThrowHelper.ThrowInvalidOperationException(message ?? "The operation must not run on the main thread.");
         }
     }
 
@@ -877,9 +870,61 @@ public static class ThreadHelper
         await task.Preserve();
     }
 
+    private static void CleanUp(TimeSpan cleanupTimeout = default, Action<Exception>? exceptionHandler = default)
+    {
+        if (_disposeCancellationTokenSource.IsCancellationRequested)
+        {
+            return;
+        }
+
+        _disposeCancellationTokenSource.TryCancel();
+
+        try
+        {
+            using var cts = new CancellationTokenSource();
+
+            var token = cts.Token;
+
+            cts.CancelAfter(cleanupTimeout);
+
+            JoinableTaskContext.Factory.Run(() => _joinableTaskCollection?.JoinTillEmptyAsync(token) ??
+                                                  Task.CompletedTask);
+        }
+        catch (OperationCanceledException)
+        {
+            // This exception is expected because we signaled the cancellation token
+        }
+        catch (AggregateException exception)
+        {
+            try
+            {
+                // Ignore AggregateException containing only OperationCanceledException
+                exception.Handle(inner => inner is OperationCanceledException);
+            }
+            catch (AggregateException aggregateException)
+            {
+                exceptionHandler?.Invoke(aggregateException);
+            }
+        }
+        catch (Exception ex) when (exceptionHandler is not null)
+        {
+            exceptionHandler.Invoke(ex);
+        }
+        finally
+        {
+            JoinableTaskContext.Dispose();
+            _disposeCancellationTokenSource.Dispose();
+            _cleanupRegistration?.Dispose();
+            _cleanupRegistration = null;
+            _joinableTaskFactory = null;
+            _joinableTaskCollection = null;
+            _joinableTaskContext = null;
+        }
+    }
+
     private static void ThrowIfDisposed()
     {
-        if (CanUseDispatcher && !IsInitialized)
+        if (_disposeCancellationTokenSource.IsCancellationRequested)
         {
             ThrowHelper.ThrowInvalidOperationException(
                 $"{nameof(ThreadHelper)} class was used after being cleaned up.");

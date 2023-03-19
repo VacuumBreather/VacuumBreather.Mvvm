@@ -33,14 +33,15 @@ public class DialogConductor : ConductorCollectionOneActive<DialogScreen>, IDial
                              };
 
         return ThreadHelper.RunOnUIThreadAsync(() =>
-        {
-            if (openFileDialog.ShowDialog() == true)
-            {
-                return openFileDialog.FileName;
-            }
+                                               {
+                                                   if (openFileDialog.ShowDialog() == true)
+                                                   {
+                                                       return openFileDialog.FileName;
+                                                   }
 
-            return null;
-        });
+                                                   return null;
+                                               },
+                                               cancellationToken: cancellationToken);
     }
 
     /// <inheritdoc/>
@@ -55,14 +56,15 @@ public class DialogConductor : ConductorCollectionOneActive<DialogScreen>, IDial
                              };
 
         return ThreadHelper.RunOnUIThreadAsync(() =>
-        {
-            if (openFileDialog.ShowDialog() == true)
-            {
-                return openFileDialog.FileName;
-            }
+                                               {
+                                                   if (openFileDialog.ShowDialog() == true)
+                                                   {
+                                                       return openFileDialog.FileName;
+                                                   }
 
-            return null;
-        });
+                                                   return null;
+                                               },
+                                               cancellationToken: cancellationToken);
     }
 
     /// <summary>Shows the specified <see cref="DialogScreen"/> as a dialog.</summary>

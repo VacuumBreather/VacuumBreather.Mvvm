@@ -8,6 +8,12 @@ using VacuumBreather.Mvvm.Core;
 namespace VacuumBreather.Mvvm.Wpf;
 
 /// <summary>A command which relays its execution to an asynchronous delegate.</summary>
+[SuppressMessage(category: "IDisposableAnalyzers.Correctness",
+                 checkId: "IDISP006:Implement IDisposable",
+                 Justification = "Disposable members are only instantiated in using blocks.")]
+[SuppressMessage(category: "IDisposableAnalyzers.Correctness",
+                 checkId: "IDISP006:Implement IDisposable",
+                 Justification = "Generic version of same type")]
 public sealed class AsyncRelayCommand : IAsyncCommand
 {
     /// <summary>A command which does nothing and can always be executed.</summary>
@@ -17,6 +23,8 @@ public sealed class AsyncRelayCommand : IAsyncCommand
 
     private readonly Func<CancellationToken, ValueTask> _execute;
     private readonly Func<bool>? _canExecute;
+
+    private CancellationTokenSource? _cts;
 
     /// <summary>Initializes a new instance of the <see cref="AsyncRelayCommand"/> class.</summary>
     /// <param name="execute">The asynchronous action to perform when the command is executed.</param>
@@ -33,25 +41,42 @@ public sealed class AsyncRelayCommand : IAsyncCommand
     public event EventHandler? CanExecuteChanged;
 
     /// <inheritdoc/>
+    public bool IsCancellationRequested => Token.IsCancellationRequested;
+
+    /// <inheritdoc/>
+    public CancellationToken Token => _cts?.Token ?? CancellationToken.None;
+
+    /// <inheritdoc/>
+    public void Cancel(bool useNewThread = true)
+    {
+        _cts?.TryCancel(useNewThread);
+    }
+
+    /// <inheritdoc/>
     public bool CanExecute()
     {
         return !_asyncGuard.IsOngoing && (_canExecute?.Invoke() ?? true);
     }
 
-    /// <param name="cancellationToken"></param>
     /// <inheritdoc/>
     public async ValueTask ExecuteAsync(CancellationToken cancellationToken = default)
     {
         if (CanExecute())
         {
-            await _execute(cancellationToken).Using(_asyncGuard);
+            using (_cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
+            {
+                await _execute(_cts.Token).Using(_asyncGuard);
+            }
+
+            _cts = null;
         }
     }
 
-    /// <summary>Raises the <see cref="CanExecuteChanged"/> event.</summary>
+    /// <inheritdoc/>
     public void Refresh()
     {
-        ThreadHelper.RunOnUIThread(() => CanExecuteChanged?.Invoke(this, EventArgs.Empty));
+        ThreadHelper.RunOnUIThread(() => CanExecuteChanged?.Invoke(this, EventArgs.Empty),
+                                   cancellationToken: CancellationToken.None);
     }
 
     /// <inheritdoc/>
@@ -63,7 +88,7 @@ public sealed class AsyncRelayCommand : IAsyncCommand
     /// <inheritdoc/>
     void ICommand.Execute(object? parameter)
     {
-        ExecuteAsync().Forget();
+        ThreadHelper.RunOnUIThreadAndForget(ExecuteAsync, cancellationToken: CancellationToken.None);
     }
 }
 
@@ -72,12 +97,16 @@ public sealed class AsyncRelayCommand : IAsyncCommand
 [SuppressMessage(category: "StyleCop.CSharp.MaintainabilityRules",
                  checkId: "SA1402:File may only contain a single type",
                  Justification = "Generic version of same type")]
+[SuppressMessage(category: "IDisposableAnalyzers.Correctness",
+                 checkId: "IDISP006:Implement IDisposable",
+                 Justification = "Generic version of same type")]
 public sealed class AsyncRelayCommand<T> : IAsyncCommand<T>
 {
     private readonly AsyncGuard _asyncGuard = new();
 
     private readonly Func<T?, CancellationToken, ValueTask> _execute;
     private readonly Func<T?, bool>? _canExecute;
+    private CancellationTokenSource? _cts;
 
     /// <summary>Initializes a new instance of the <see cref="AsyncRelayCommand{T}"/> class.</summary>
     /// <param name="execute">The asynchronous action to perform when the command is executed.</param>
@@ -94,6 +123,18 @@ public sealed class AsyncRelayCommand<T> : IAsyncCommand<T>
     public event EventHandler? CanExecuteChanged;
 
     /// <inheritdoc/>
+    public bool IsCancellationRequested => Token.IsCancellationRequested;
+
+    /// <inheritdoc/>
+    public CancellationToken Token => _cts?.Token ?? CancellationToken.None;
+
+    /// <inheritdoc/>
+    public void Cancel(bool useNewThread = true)
+    {
+        _cts?.TryCancel(useNewThread);
+    }
+
+    /// <inheritdoc/>
     public bool CanExecute(T? parameter)
     {
         return !_asyncGuard.IsOngoing && (_canExecute?.Invoke(parameter) ?? true);
@@ -104,14 +145,20 @@ public sealed class AsyncRelayCommand<T> : IAsyncCommand<T>
     {
         if (CanExecute(parameter))
         {
-            await _execute(parameter, cancellationToken).Using(_asyncGuard);
+            using (_cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
+            {
+                await _execute(parameter, cancellationToken).Using(_asyncGuard);
+            }
+
+            _cts = null;
         }
     }
 
-    /// <summary>Raises the <see cref="CanExecuteChanged"/> event.</summary>
+    /// <inheritdoc/>
     public void Refresh()
     {
-        ThreadHelper.RunOnUIThread(() => CanExecuteChanged?.Invoke(this, EventArgs.Empty));
+        ThreadHelper.RunOnUIThread(() => CanExecuteChanged?.Invoke(this, EventArgs.Empty),
+                                   cancellationToken: CancellationToken.None);
     }
 
     /// <inheritdoc/>
@@ -123,6 +170,7 @@ public sealed class AsyncRelayCommand<T> : IAsyncCommand<T>
     /// <inheritdoc/>
     void ICommand.Execute(object? parameter)
     {
-        ExecuteAsync((T?)parameter).Forget();
+        ThreadHelper.RunOnUIThreadAndForget(token => ExecuteAsync((T?)parameter, token),
+                                            cancellationToken: CancellationToken.None);
     }
 }

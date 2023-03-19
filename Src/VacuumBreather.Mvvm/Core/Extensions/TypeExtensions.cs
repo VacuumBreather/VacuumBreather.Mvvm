@@ -1,8 +1,10 @@
 ﻿using System;
+using JetBrains.Annotations;
 
 namespace VacuumBreather.Mvvm.Core;
 
 /// <summary>Provides extension methods for the <see cref="Type"/> type.</summary>
+[PublicAPI]
 public static class TypeExtensions
 {
     /// <summary>Determines whether an instance of this type can be assigned to a variable of the specified type.</summary>

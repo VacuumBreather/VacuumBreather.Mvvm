@@ -4,10 +4,10 @@ using System.Threading;
 namespace VacuumBreather.Mvvm.Core;
 
 /// <summary>Interface for an object that represents an operation that can be canceled.</summary>
-public interface ICanBeCanceled
+public interface ICancellable
 {
-    /// <summary>Gets a value indicating whether cancellation has been requested for this <see cref="ICanBeCanceled"/>.</summary>
-    /// <value>Whether cancellation has been requested for this <see cref="ICanBeCanceled"/>.</value>
+    /// <summary>Gets a value indicating whether cancellation has been requested for this <see cref="ICancellable"/>.</summary>
+    /// <value>Whether cancellation has been requested for this <see cref="ICancellable"/>.</value>
     /// <remarks>
     ///     <para>
     ///         This property indicates whether cancellation has been requested for this token source, such as due to a call
@@ -22,7 +22,7 @@ public interface ICanBeCanceled
     /// </remarks>
     bool IsCancellationRequested { get; }
 
-    /// <summary>Gets the <see cref="CancellationToken"/> associated with this <see cref="ICanBeCanceled"/>.</summary>
+    /// <summary>Gets the <see cref="CancellationToken"/> associated with this <see cref="ICancellable"/>.</summary>
     CancellationToken Token { get; }
 
     /// <summary>Communicates a request for cancellation.</summary>

@@ -35,7 +35,7 @@ public class ViewModelToViewConverter : ConverterBase
             return DependencyProperty.UnsetValue;
         }
 
-        if (ServiceProvider?.GetService(typeof(ViewLocator)) is not ViewLocator viewLocator)
+        if (ServiceProvider.GetService(typeof(ViewLocator)) is not ViewLocator viewLocator)
         {
             return DependencyProperty.UnsetValue;
         }

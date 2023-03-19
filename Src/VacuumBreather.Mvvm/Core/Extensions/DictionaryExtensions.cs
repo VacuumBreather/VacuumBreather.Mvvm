@@ -1,8 +1,10 @@
 ﻿using System.Collections.Generic;
+using JetBrains.Annotations;
 
 namespace VacuumBreather.Mvvm.Core;
 
 /// <summary>Provides extension methods for the <see cref="IDictionary{TKey,TValue}"/> type.</summary>
+[PublicAPI]
 public static class DictionaryExtensions
 {
     /// <summary>Gets the value for a key or default(TValue) if the key does not exist.</summary>

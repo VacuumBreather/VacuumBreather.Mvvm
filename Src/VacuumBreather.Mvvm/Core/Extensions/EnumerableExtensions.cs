@@ -1,10 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using JetBrains.Annotations;
 
 namespace VacuumBreather.Mvvm.Core;
 
 /// <summary>Provides extension methods for the <see cref="IEnumerable{T}"/> type.</summary>
+[PublicAPI]
 public static class EnumerableExtensions
 {
     /// <summary>Applies an accumulator function over a sequence.</summary>

@@ -61,7 +61,7 @@ public static class AsyncHelper
 
     private sealed class AsyncOperation : IAsyncOperation
     {
-        private readonly SafeCancellationTokenSource _cancellationTokenSource;
+        private readonly CancellationTokenSource _cancellationTokenSource;
         private readonly TaskCompletionSource _completion;
         private readonly IDisposable _completionGuard;
         private readonly IDisposable? _guardToken;
@@ -69,7 +69,7 @@ public static class AsyncHelper
         internal AsyncOperation(CancellationToken cancellationToken = default)
         {
             _completionGuard = CreateGuard(out _completion);
-            _cancellationTokenSource = SafeCancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            _cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 
             _cancellationTokenSource.Token.Register(() => _completion.SetCanceled(_cancellationTokenSource.Token));
         }
@@ -80,13 +80,13 @@ public static class AsyncHelper
             _guardToken = asyncGuard.GetToken();
         }
 
-        public bool IsCancellationRequested => _cancellationTokenSource.IsCancellationRequested;
+        public bool IsCancellationRequested => Token.IsCancellationRequested;
 
         public CancellationToken Token => _cancellationTokenSource.Token;
 
         public void Cancel(bool useNewThread = true)
         {
-            _cancellationTokenSource.Cancel(useNewThread);
+            _cancellationTokenSource.TryCancel(useNewThread);
         }
 
         public void Dispose()

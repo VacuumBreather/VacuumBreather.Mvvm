@@ -2,10 +2,12 @@
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Diagnostics;
+using JetBrains.Annotations;
 
 namespace VacuumBreather.Mvvm.Core;
 
 /// <summary>Provides extension methods for the <see cref="IConductor"/> type.</summary>
+[PublicAPI]
 public static class ConductorExtensions
 {
     /// <summary>Closes the specified item.</summary>
