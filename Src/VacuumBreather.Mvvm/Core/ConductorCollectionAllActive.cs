@@ -66,6 +66,8 @@ public class ConductorCollectionAllActive<T> : ConductorBase<T>, ICollectionCond
 
         if (IsActive)
         {
+            using var _ = AsyncGuard.GetToken();
+
             await ScreenExtensions.TryActivateAsync(item, cancellationToken);
         }
 
@@ -75,6 +77,8 @@ public class ConductorCollectionAllActive<T> : ConductorBase<T>, ICollectionCond
     /// <inheritdoc/>
     public override async ValueTask<bool> CanCloseAsync(CancellationToken cancellationToken = default)
     {
+        using var _ = AsyncGuard.GetToken();
+
         ICloseResult<T> closeResult = await CloseStrategy.ExecuteAsync(_items.ToList(), cancellationToken);
 
         if (closeResult.CloseCanOccur || !closeResult.Children.Any())
@@ -93,9 +97,13 @@ public class ConductorCollectionAllActive<T> : ConductorBase<T>, ICollectionCond
     }
 
     /// <inheritdoc/>
-    public override ValueTask DeactivateItemAsync(T item, bool close, CancellationToken cancellationToken = default)
+    public override async ValueTask DeactivateItemAsync(T item,
+                                                        bool close,
+                                                        CancellationToken cancellationToken = default)
     {
-        return this.DeactivateItemAsync(item, close, CloseItemCoreAsync, cancellationToken);
+        using var _ = AsyncGuard.GetToken();
+
+        await this.DeactivateItemAsync(item, close, CloseItemCoreAsync, cancellationToken);
     }
 
     /// <inheritdoc/>

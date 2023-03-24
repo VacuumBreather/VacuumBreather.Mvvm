@@ -13,7 +13,7 @@ public class NotificationConductor : ConductorCollectionAllActive<NotificationSc
 {
     private static readonly TimeSpan MinimumExpirationTime = TimeSpan.FromSeconds(value: 1);
 
-    private TimeSpan _expirationTime = TimeSpan.FromSeconds(value: 5);
+    private TimeSpan _expirationTime = TimeSpan.FromSeconds(value: 10);
 
     /// <inheritdoc/>
     public TimeSpan ExpirationTime

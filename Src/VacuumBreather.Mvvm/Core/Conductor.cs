@@ -16,6 +16,8 @@ public class Conductor<T> : ConductorBaseWithActiveItem<T>
     {
         Guard.IsNotNull(item);
 
+        using var _ = AsyncGuard.GetToken();
+
         if (item.Equals(ActiveItem))
         {
             if (IsActive)
@@ -51,6 +53,8 @@ public class Conductor<T> : ConductorBaseWithActiveItem<T>
             return true;
         }
 
+        using var _ = AsyncGuard.GetToken();
+
         ICloseResult<T> closeResult = await CloseStrategy.ExecuteAsync(new[] { ActiveItem }, cancellationToken);
 
         return closeResult.CloseCanOccur;
@@ -71,6 +75,8 @@ public class Conductor<T> : ConductorBaseWithActiveItem<T>
         {
             return;
         }
+
+        using var _ = AsyncGuard.GetToken();
 
         var closeCanOccur = ActiveItem is null ||
                             (await CloseStrategy.ExecuteAsync(new[] { ActiveItem }, cancellationToken)).CloseCanOccur;

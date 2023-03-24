@@ -40,6 +40,8 @@ public abstract class ConductorBaseWithActiveItem<T> : ConductorBase<T>, IConduc
                                                             bool closePrevious,
                                                             CancellationToken cancellationToken)
     {
+        using var _ = AsyncGuard.GetToken();
+
         await ScreenExtensions.TryDeactivateAsync(ActiveItem, closePrevious, cancellationToken);
 
         newItem = EnsureItem(newItem);

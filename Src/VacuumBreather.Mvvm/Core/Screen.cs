@@ -86,6 +86,8 @@ public abstract class Screen : ViewAware, IScreen, IChild, IHaveAsynchronousOper
     /// <inheritdoc/>
     public virtual async ValueTask TryCloseAsync(CancellationToken cancellationToken = default)
     {
+        using var _ = AsyncGuard.GetToken();
+
         if (Parent is IConductor conductor)
         {
             await conductor.CloseItemAsync(this, cancellationToken);
@@ -103,6 +105,8 @@ public abstract class Screen : ViewAware, IScreen, IChild, IHaveAsynchronousOper
         {
             return;
         }
+
+        using var _ = AsyncGuard.GetToken();
 
         IsActive = true;
 
@@ -141,6 +145,8 @@ public abstract class Screen : ViewAware, IScreen, IChild, IHaveAsynchronousOper
     /// <inheritdoc/>
     public async ValueTask DeactivateAsync(bool close, CancellationToken cancellationToken = default)
     {
+        using var _ = AsyncGuard.GetToken();
+
         if (!IsInitialized)
         {
             // We do not allow deactivation before initialization.

@@ -36,6 +36,8 @@ public class ConductorCollectionOneActive<T> : ConductorBaseWithActiveItem<T>, I
     /// <inheritdoc/>
     public override async ValueTask ActivateItemAsync(T? item, CancellationToken cancellationToken = default)
     {
+        using var _ = AsyncGuard.GetToken();
+
         if (item?.Equals(ActiveItem) ?? false)
         {
             if (IsActive)
@@ -54,6 +56,8 @@ public class ConductorCollectionOneActive<T> : ConductorBaseWithActiveItem<T>, I
     /// <inheritdoc/>
     public override async ValueTask<bool> CanCloseAsync(CancellationToken cancellationToken = default)
     {
+        using var _ = AsyncGuard.GetToken();
+
         ICloseResult<T> closeResult = await CloseStrategy.ExecuteAsync(_items.ToList(), cancellationToken);
 
         if (closeResult.CloseCanOccur || !closeResult.Children.Any())
@@ -94,9 +98,13 @@ public class ConductorCollectionOneActive<T> : ConductorBaseWithActiveItem<T>, I
     }
 
     /// <inheritdoc/>
-    public override ValueTask DeactivateItemAsync(T item, bool close, CancellationToken cancellationToken = default)
+    public override async ValueTask DeactivateItemAsync(T item,
+                                                        bool close,
+                                                        CancellationToken cancellationToken = default)
     {
-        return this.DeactivateItemAsync(item, close, CloseItemCoreAsync, cancellationToken);
+        using var _ = AsyncGuard.GetToken();
+
+        await this.DeactivateItemAsync(item, close, CloseItemCoreAsync, cancellationToken);
     }
 
     /// <summary>Determines the next item to activate based on the last active index.</summary>
